@@ -1,0 +1,48 @@
+.container {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.container.dragging {
+  user-select: none;
+  cursor: col-resize;
+}
+
+.left {
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.right {
+  flex: 1;
+  overflow: hidden;
+  min-width: 200px;
+}
+
+.divider {
+  width: 6px;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: transparent;
+  position: relative;
+  z-index: 10;
+}
+
+.divider:hover .dividerLine,
+.dragging .dividerLine {
+  background: #4a9eff;
+}
+
+.dividerLine {
+  width: 2px;
+  height: 100%;
+  background: #333;
+  border-radius: 1px;
+  transition: background 0.15s;
+}

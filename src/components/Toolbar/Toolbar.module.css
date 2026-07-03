@@ -1,0 +1,97 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 8px;
+  background: #1e1e1e;
+  border-bottom: 1px solid #333;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.leftGroup,
+.rightGroup {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.centerGroup {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s, color 0.15s;
+}
+
+.iconBtn:hover {
+  background: #333;
+  color: #fff;
+}
+
+.iconBtn:active {
+  background: #444;
+}
+
+.iconBtn.active {
+  color: #4a9eff;
+}
+
+.tooltip {
+  position: absolute;
+  bottom: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 100;
+}
+
+.iconBtn:hover .tooltip {
+  opacity: 1;
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background: #444;
+  margin: 0 4px;
+}
+
+.filePath {
+  color: #888;
+  font-size: 12px;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.error {
+  color: #f48771;
+  font-size: 12px;
+  padding: 2px 8px;
+  background: #3c1a1a;
+  border-radius: 4px;
+}

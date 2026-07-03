@@ -1,0 +1,44 @@
+import { useState, useCallback } from 'react';
+
+export function useFileOperations() {
+  const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
+
+  const openFile = useCallback(async (): Promise<string> => {
+    const result = await window.electronAPI.openFile();
+    if (result.filePath) {
+      const content = await window.electronAPI.readFile(result.filePath);
+      setCurrentFilePath(result.filePath);
+      return content;
+    }
+    return '';
+  }, []);
+
+  const saveFile = useCallback(
+    async (content: string): Promise<boolean> => {
+      let filePath = currentFilePath;
+      if (!filePath) {
+        const result = await window.electronAPI.saveFile(content);
+        filePath = result.filePath;
+      } else {
+        await window.electronAPI.writeFile(filePath, content);
+      }
+      if (filePath) {
+        setCurrentFilePath(filePath);
+        return true;
+      }
+      return false;
+    },
+    [currentFilePath]
+  );
+
+  const saveAs = useCallback(async (content: string): Promise<boolean> => {
+    const result = await window.electronAPI.saveFile(content);
+    if (result.filePath) {
+      setCurrentFilePath(result.filePath);
+      return true;
+    }
+    return false;
+  }, []);
+
+  return { openFile, saveFile, saveAs, currentFilePath, setCurrentFilePath };
+}

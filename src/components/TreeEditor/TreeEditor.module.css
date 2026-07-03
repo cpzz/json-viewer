@@ -1,0 +1,75 @@
+.container {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #1e1e1e;
+  font-size: 13px;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #666;
+  font-size: 14px;
+}
+
+.nodeRow {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  cursor: pointer;
+  color: #d4d4d4;
+  transition: background 0.1s;
+}
+
+.nodeRow:hover {
+  background: #2a2d2e;
+}
+
+.selected {
+  background: #37373d !important;
+}
+
+.expandBtn {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.arrow {
+  font-size: 10px;
+  transition: transform 0.15s;
+  display: inline-block;
+}
+
+.arrow.open {
+  transform: rotate(90deg);
+}
+
+.expandPlaceholder {
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.key {
+  color: #9cdcfe;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+.value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

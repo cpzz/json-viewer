@@ -1,24 +1,37 @@
+import { useState, useRef, useEffect } from 'react';
 import { NodeRendererProps } from 'react-arborist';
-import { JsonTreeNode } from '../../types';
+import { JsonTreeNode, JsonNodeType } from '../../types';
 import styles from './TreeEditor.module.css';
 
-export function TreeNode({ node, style, dragHandle }: NodeRendererProps<JsonTreeNode>) {
+interface TreeNodeProps extends NodeRendererProps<JsonTreeNode> {
+  onUpdate: (id: string, updates: Partial<JsonTreeNode>) => void;
+  onDelete: (id: string) => void;
+  onAddChild: (parentId: string) => void;
+  activeNodeId: string | null;
+  onSelectNode: (id: string) => void;
+}
+
+export function TreeNode({ node, style, dragHandle, onUpdate, onDelete, onAddChild, activeNodeId, onSelectNode }: TreeNodeProps) {
   const data = node.data;
   const indent = node.level * 20 + 8;
+  const [editing, setEditing] = useState<'key' | 'value' | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
 
   const getTypeColor = (): string => {
     switch (data.type) {
-      case 'string':
-        return '#ce9178';
-      case 'number':
-        return '#b5cea8';
-      case 'boolean':
-        return '#569cd6';
-      case 'null':
-        return '#569cd6';
-      case 'object':
-      case 'array':
-        return '#d4d4d4';
+      case 'string': return 'var(--string-color)';
+      case 'number': return 'var(--number-color)';
+      case 'boolean': return 'var(--boolean-color)';
+      case 'null': return 'var(--boolean-color)';
+      default: return 'var(--text-primary)';
     }
   };
 
@@ -31,35 +44,160 @@ export function TreeNode({ node, style, dragHandle }: NodeRendererProps<JsonTree
   };
 
   const isExpandable = data.type === 'object' || data.type === 'array';
+  const isLeaf = !isExpandable;
+  const isRoot = node.level === 0;
+  const isActive = data.id === activeNodeId;
+
+  const startEditValue = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isLeaf) {
+      setEditValue(data.type === 'null' ? '' : String(data.value));
+      setEditing('value');
+    }
+  };
+
+  const startEditKey = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isRoot) {
+      setEditValue(data.key);
+      setEditing('key');
+    }
+  };
+
+  const commitEdit = () => {
+    if (editing === 'value') {
+      let newValue: unknown = editValue;
+      if (data.type === 'number') {
+        newValue = Number(editValue);
+        if (isNaN(newValue as number)) newValue = 0;
+      } else if (data.type === 'boolean') {
+        newValue = editValue === 'true';
+      } else if (data.type === 'null') {
+        newValue = null;
+      }
+      onUpdate(data.id, { value: newValue });
+    } else if (editing === 'key') {
+      if (editValue.trim()) {
+        onUpdate(data.id, { key: editValue });
+      }
+    }
+    setEditing(null);
+  };
+
+  const cancelEdit = () => setEditing(null);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEdit();
+    }
+  };
+
+  const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newType = e.target.value as JsonNodeType;
+    let newValue: unknown = data.value;
+    if (newType === 'string') newValue = String(data.value ?? '');
+    else if (newType === 'number') newValue = Number(data.value) || 0;
+    else if (newType === 'boolean') newValue = Boolean(data.value);
+    else if (newType === 'null') newValue = null;
+    else if (newType === 'object') { newValue = {}; }
+    else if (newType === 'array') { newValue = []; }
+    onUpdate(data.id, { type: newType, value: newValue });
+  };
 
   return (
     <div
-      className={`${styles.nodeRow} ${node.isSelected ? styles.selected : ''}`}
+      className={`${styles.nodeRow} ${node.isSelected ? styles.selected : ''} ${isActive ? styles.active : ''}`}
       style={{ ...style, paddingLeft: indent }}
       ref={dragHandle}
-      onClick={() => node.select()}
-      onDoubleClick={() => {
-        if (isExpandable) {
-          node.toggle();
-        }
+      onClick={() => {
+        node.select();
+        onSelectNode(data.id);
       }}
     >
       {isExpandable && (
         <button
           className={styles.expandBtn}
-          onClick={(e) => {
-            e.stopPropagation();
-            node.toggle();
-          }}
+          onClick={(e) => { e.stopPropagation(); node.toggle(); }}
         >
           <span className={`${styles.arrow} ${node.isOpen ? styles.open : ''}`}>&#9654;</span>
         </button>
       )}
       {!isExpandable && <span className={styles.expandPlaceholder} />}
-      <span className={styles.key}>{data.key}:</span>
-      <span className={styles.value} style={{ color: getTypeColor() }}>
-        {getValuePreview()}
-      </span>
+
+      {editing === 'key' ? (
+        <input
+          ref={inputRef}
+          className={styles.editInput}
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={commitEdit}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <span className={styles.key} onDoubleClick={startEditKey}>
+          {data.key}:
+        </span>
+      )}
+
+      {editing === 'value' ? (
+        <input
+          ref={inputRef}
+          className={styles.editInput}
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={commitEdit}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <span
+          className={styles.value}
+          style={{ color: getTypeColor() }}
+          onDoubleClick={startEditValue}
+        >
+          {getValuePreview()}
+        </span>
+      )}
+
+      <div className={styles.actions}>
+        <select
+          className={styles.typeSelect}
+          value={data.type}
+          onChange={handleTypeChange}
+          onClick={(e) => e.stopPropagation()}
+          title="切换类型"
+        >
+          <option value="string">str</option>
+          <option value="number">num</option>
+          <option value="boolean">bool</option>
+          <option value="null">null</option>
+          <option value="object">obj</option>
+          <option value="array">arr</option>
+        </select>
+        {isExpandable && (
+          <button
+            className={styles.actionBtn}
+            onClick={(e) => { e.stopPropagation(); onAddChild(data.id); }}
+            title="添加子节点"
+          >
+            +
+          </button>
+        )}
+        {!isRoot && (
+          <button
+            className={styles.actionBtn}
+            onClick={(e) => { e.stopPropagation(); onDelete(data.id); }}
+            title="删除节点"
+          >
+            ×
+          </button>
+        )}
+      </div>
     </div>
   );
 }

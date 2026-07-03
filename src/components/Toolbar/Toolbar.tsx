@@ -1,4 +1,4 @@
-import { FolderOpen, Save, RefreshCw, PanelLeft, PanelRight } from 'lucide-react';
+import { FolderOpen, Save, RefreshCw, PanelLeft, PanelRight, Sun, Moon } from 'lucide-react';
 import styles from './Toolbar.module.css';
 
 interface ToolbarProps {
@@ -11,6 +11,8 @@ interface ToolbarProps {
   onToggleRight: () => void;
   currentFilePath?: string | null;
   parseError?: string | null;
+  theme: 'dark' | 'light';
+  onToggleTheme: () => void;
 }
 
 export function Toolbar({
@@ -23,6 +25,8 @@ export function Toolbar({
   onToggleRight,
   currentFilePath,
   parseError,
+  theme,
+  onToggleTheme,
 }: ToolbarProps) {
   return (
     <div className={styles.toolbar}>
@@ -70,6 +74,14 @@ export function Toolbar({
             JSON 解析错误
           </span>
         )}
+        <button
+          className={styles.iconBtn}
+          onClick={onToggleTheme}
+          title={theme === 'dark' ? '切换到日间模式' : '切换到夜间模式'}
+        >
+          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          <span className={styles.tooltip}>{theme === 'dark' ? '日间模式' : '夜间模式'}</span>
+        </button>
       </div>
     </div>
   );

@@ -14,12 +14,14 @@
 .left {
   flex-shrink: 0;
   overflow: hidden;
+  height: 100%;
 }
 
 .right {
   flex: 1;
   overflow: hidden;
   min-width: 200px;
+  height: 100%;
 }
 
 .divider {
@@ -36,13 +38,13 @@
 
 .divider:hover .dividerLine,
 .dragging .dividerLine {
-  background: #4a9eff;
+  background: var(--accent);
 }
 
 .dividerLine {
   width: 2px;
   height: 100%;
-  background: #333;
+  background: var(--border);
   border-radius: 1px;
   transition: background 0.15s;
 }

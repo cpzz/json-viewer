@@ -1,17 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Toolbar } from './components/Toolbar/Toolbar';
 import { SplitPane } from './components/SplitPane/SplitPane';
 import { TreeEditor } from './components/TreeEditor/TreeEditor';
 import { CodeEditor } from './components/CodeEditor/CodeEditor';
 import { useJsonSync } from './hooks/useJsonSync';
 import { useFileOperations } from './hooks/useFileOperations';
+import { findNodeIdByLine } from './utils/positionMap';
 import styles from './App.module.css';
 
+type Theme = 'dark' | 'light';
+
 function App() {
-  const { jsonText, treeData, parseError, updateFromTree, updateFromCode } = useJsonSync();
+  const { jsonText, treeData, parseError, positionMap, updateFromTree, updateFromCode } = useJsonSync();
   const { openFile, saveFile, currentFilePath } = useFileOperations();
   const [leftVisible, setLeftVisible] = useState(true);
   const [rightVisible, setRightVisible] = useState(true);
+  const [theme, setTheme] = useState<Theme>('dark');
+  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
+  const [jumpTarget, setJumpTarget] = useState<string | null>(null);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   useEffect(() => {
     const name = currentFilePath
@@ -22,7 +32,11 @@ function App() {
 
   const handleOpen = async () => {
     const content = await openFile();
-    if (content) updateFromCode(content);
+    if (content) {
+      updateFromCode(content);
+      setActiveNodeId(null);
+      setJumpTarget(null);
+    }
   };
 
   const handleSave = async () => {
@@ -32,6 +46,22 @@ function App() {
   const handleRefresh = () => {
     updateFromCode(jsonText);
   };
+
+  const toggleTheme = () => {
+    setTheme(t => (t === 'dark' ? 'light' : 'dark'));
+  };
+
+  const handleCursorMove = useCallback((lineNumber: number) => {
+    const nodeId = findNodeIdByLine(positionMap, lineNumber);
+    if (nodeId && nodeId !== activeNodeId) {
+      setActiveNodeId(nodeId);
+    }
+  }, [positionMap, activeNodeId]);
+
+  const handleSelectNode = useCallback((id: string) => {
+    setActiveNodeId(id);
+    setJumpTarget(id);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -59,10 +89,25 @@ function App() {
         onToggleRight={() => setRightVisible(v => !v)}
         currentFilePath={currentFilePath}
         parseError={parseError}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
       <SplitPane leftVisible={leftVisible} rightVisible={rightVisible}>
-        <TreeEditor data={treeData} onChange={updateFromTree} />
-        <CodeEditor value={jsonText} onChange={updateFromCode} error={parseError} />
+        <TreeEditor
+          data={treeData}
+          onChange={updateFromTree}
+          activeNodeId={activeNodeId}
+          onSelectNode={handleSelectNode}
+        />
+        <CodeEditor
+          value={jsonText}
+          onChange={updateFromCode}
+          error={parseError}
+          theme={theme}
+          positionMap={positionMap}
+          jumpTarget={jumpTarget}
+          onCursorMove={handleCursorMove}
+        />
       </SplitPane>
     </div>
   );

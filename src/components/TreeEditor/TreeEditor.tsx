@@ -92,6 +92,9 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
       onChange(newTree);
       if (parentId) {
         onSelectNode(parentId);
+      } else if (activeNodeId) {
+        // 非焦点删除，把 Monaco 光标送回当前焦点位置
+        onSelectNode(activeNodeId);
       }
     },
     [data, onChange, activeNodeId, onSelectNode]

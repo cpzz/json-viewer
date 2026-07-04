@@ -28,6 +28,7 @@ export function CodeEditor({
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
   const onCursorMoveRef = useRef(onCursorMove);
   const decorationsRef = useRef<string[]>([]);
+  const suppressCursorRef = useRef(false);
 
   useLayoutEffect(() => {
     onCursorMoveRef.current = onCursorMove;
@@ -81,8 +82,17 @@ export function CodeEditor({
     const pos = editor.getPosition();
     if (pos) updateActiveLine(pos.lineNumber);
 
+    // 当内容被程序替换时（来自树更新），抑制下一个光标事件的回调
+    editor.onDidChangeModelContent(() => {
+      suppressCursorRef.current = true;
+    });
+
     editor.onDidChangeCursorPosition((e) => {
       updateActiveLine(e.position.lineNumber);
+      if (suppressCursorRef.current) {
+        suppressCursorRef.current = false;
+        return;
+      }
       onCursorMoveRef.current(e.position.lineNumber);
     });
   };

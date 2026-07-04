@@ -36,8 +36,8 @@ export function TreeNode({ node, style, dragHandle, activeNodeId, onUpdate, onDe
   };
 
   const getValuePreview = (): string => {
-    if (data.type === 'object') return `{${data.children?.length || 0} 项}`;
-    if (data.type === 'array') return `[${data.children?.length || 0} 项]`;
+    if (data.type === 'object') return `object (${data.children?.length || 0})`;
+    if (data.type === 'array') return `array (${data.children?.length || 0})`;
     if (data.type === 'null') return 'null';
     if (data.type === 'string') return `"${String(data.value).substring(0, 40)}"`;
     return String(data.value);

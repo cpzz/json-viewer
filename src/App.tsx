@@ -7,6 +7,7 @@ import { FileExplorer, FileItem } from './components/FileExplorer/FileExplorer';
 import { useJsonSync } from './hooks/useJsonSync';
 import { useFileOperations } from './hooks/useFileOperations';
 import { findNodeIdByLine } from './utils/positionMap';
+import { StatusBar } from './components/StatusBar/StatusBar';
 import styles from './App.module.css';
 
 type Theme = 'dark' | 'light';
@@ -35,6 +36,8 @@ function App() {
   const [resetCursorLine, setResetCursorLine] = useState(1);
   const [treeRestoreSig, setTreeRestoreSig] = useState(0);
   const [treeRestoreTarget, setTreeRestoreTarget] = useState<string | null>(null);
+  const [cursorLine, setCursorLine] = useState(1);
+  const [cursorColumn, setCursorColumn] = useState(1);
   const editorStateRef = useRef<Map<string, EditorPosState>>(new Map());
   const lastCursorLineRef = useRef(1);
   const currentFilePathRef = useRef<string | null>(null);
@@ -206,7 +209,9 @@ function App() {
     setTheme(t => (t === 'dark' ? 'light' : 'dark'));
   };
 
-  const handleCursorMove = useCallback((lineNumber: number) => {
+  const handleCursorMove = useCallback((lineNumber: number, column: number) => {
+    setCursorLine(lineNumber);
+    setCursorColumn(column);
     lastCursorLineRef.current = lineNumber;
     const nodeId = findNodeIdByLine(positionMap, lineNumber);
     if (nodeId) {
@@ -369,6 +374,14 @@ function App() {
           />
         </SplitPane>
       </div>
+      <StatusBar
+        currentFilePath={currentFilePath}
+        cursorLine={cursorLine}
+        cursorColumn={cursorColumn}
+        parseError={parseError}
+        nodeCount={treeData.length}
+        theme={theme}
+      />
     </div>
   );
 }

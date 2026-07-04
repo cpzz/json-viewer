@@ -12,7 +12,7 @@ interface CodeEditorProps {
   theme: 'dark' | 'light';
   positionMap: Map<string, PositionInfo>;
   jumpTarget: string | null;
-  onCursorMove: (lineNumber: number) => void;
+  onCursorMove: (lineNumber: number, column: number) => void;
   resetCursorKey: number;
   resetCursorLine: number;
   isUpdatingFromTreeRef: React.MutableRefObject<boolean>;
@@ -92,7 +92,7 @@ export function CodeEditor({
       if (isUpdatingFromTreeRef.current) {
         return;
       }
-      onCursorMoveRef.current(e.position.lineNumber);
+      onCursorMoveRef.current(e.position.lineNumber, e.position.column);
     });
   };
 

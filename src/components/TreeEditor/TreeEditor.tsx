@@ -81,7 +81,15 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
   );
 
   const handleDelete = useCallback(
-    (id: string) => {
+    async (id: string) => {
+      const result = await window.electronAPI.showMessageBox({
+        type: 'question',
+        title: '删除节点',
+        message: '确定要删除此节点吗？',
+        buttons: ['确定', '取消'],
+        cancelId: 1,
+      });
+      if (result.response !== 0) return;
       let parentId: string | null = null;
       if (id === activeNodeId) {
         const parent = findParent(data, id);

@@ -12,16 +12,18 @@ type Theme = 'dark' | 'light';
 
 function App() {
   const { jsonText, treeData, parseError, positionMap, updateFromTree, updateFromCode } = useJsonSync();
-  const { openFile, saveFile, reloadFile, currentFilePath } = useFileOperations();
+  const { openFile, saveFile, saveAs, reloadFile, currentFilePath } = useFileOperations();
   const [leftVisible, setLeftVisible] = useState(true);
   const [rightVisible, setRightVisible] = useState(true);
   const [theme, setTheme] = useState<Theme>('dark');
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [jumpTarget, setJumpTarget] = useState<string | null>(null);
   const [scrollTarget, setScrollTarget] = useState<{ id: string; nonce: number } | null>(null);
+  const [, forceUpdate] = useState(0);
   const savedContentRef = useRef<string>('');
   const isDirty = jsonText !== savedContentRef.current;
-  const canRefresh = currentFilePath !== null;
+  const canSave = isDirty;
+  const canRefresh = currentFilePath !== null && isDirty;
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -45,9 +47,23 @@ function App() {
   };
 
   const handleSave = async () => {
-    const success = await saveFile(jsonText);
+    const result = await window.electronAPI.showMessageBox({
+      type: 'question',
+      title: '保存文件',
+      message: '是否保存当前文件？',
+      buttons: ['确定', '取消'],
+      cancelId: 1,
+    });
+    if (result.response !== 0) return;
+    let success = false;
+    if (currentFilePath) {
+      success = await saveFile(jsonText);
+    } else {
+      success = await saveAs(jsonText);
+    }
     if (success) {
       savedContentRef.current = jsonText;
+      forceUpdate(v => v + 1);
     }
   };
 
@@ -122,6 +138,7 @@ function App() {
         onSave={handleSave}
         onRefresh={handleRefresh}
         canRefresh={canRefresh}
+        canSave={canSave}
         leftVisible={leftVisible}
         rightVisible={rightVisible}
         onToggleLeft={() => setLeftVisible(v => !v)}

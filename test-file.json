@@ -8,8 +8,7 @@
       "rate_limit_interval": "180",
       "since": "2 days ago",
       "state": "enabled",
-      "newKey": "",
-      "test": ""
+      "newKey": ""
     }
   },
   "AUTO_TECHSUPPORT_FEATURE": {

@@ -6,6 +6,7 @@ interface ToolbarProps {
   onSave: () => void;
   onRefresh: () => void;
   canRefresh: boolean;
+  canSave: boolean;
   leftVisible: boolean;
   rightVisible: boolean;
   onToggleLeft: () => void;
@@ -21,6 +22,7 @@ export function Toolbar({
   onSave,
   onRefresh,
   canRefresh,
+  canSave,
   leftVisible,
   rightVisible,
   onToggleLeft,
@@ -37,7 +39,7 @@ export function Toolbar({
           <FolderOpen size={18} />
           <span className={styles.tooltip}>打开</span>
         </button>
-        <button className={styles.iconBtn} onClick={onSave} title="保存文件 (Ctrl+S)">
+        <button className={styles.iconBtn} onClick={onSave} title="保存文件 (Ctrl+S)" disabled={!canSave}>
           <Save size={18} />
           <span className={styles.tooltip}>保存</span>
         </button>

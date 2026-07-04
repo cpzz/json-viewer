@@ -4,11 +4,9 @@
   "description": "可视化 JSON 文档编辑器",
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "electron:dev": "vite",
-    "electron:build": "vite build && electron-builder",
-    "preview": "vite preview"
+    "dev": "tsc && vite",
+    "win": "tsc && vite build && electron .",
+    "server": "vite preview"
   },
   "dependencies": {
     "react": "^18.2.0",

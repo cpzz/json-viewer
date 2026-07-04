@@ -13,8 +13,8 @@ interface ElectronAPI {
   onFileDrop: (callback: (filePath: string) => void) => void;
   openFiles: () => Promise<{ filePaths: string[] }>;
   openDirectory: () => Promise<{ filePaths: string[] }>;
-  readDirectory: (dirPath: string) => Promise<{ name: string; path: string; type: string }[]>;
-  statBatch: (paths: string[]) => Promise<{ path: string; name: string; type: string }[]>;
+  readDirectory: (dirPath: string) => Promise<{ name: string; path: string; type: 'file' | 'directory' }[]>;
+  statBatch: (paths: string[]) => Promise<{ path: string; name: string; type: 'file' | 'directory' }[]>;
 }
 
 interface Window {

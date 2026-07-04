@@ -49,8 +49,8 @@ export function TreeNode({ node, style, dragHandle, activeNodeId, onUpdate, onDe
   const isActive = data.id === activeNodeId;
 
   const startEditValue = (e: React.MouseEvent) => {
-    e.stopPropagation();
     if (isLeaf) {
+      e.stopPropagation();
       setEditValue(data.type === 'null' ? '' : String(data.value));
       setEditing('value');
     }
@@ -104,6 +104,9 @@ export function TreeNode({ node, style, dragHandle, activeNodeId, onUpdate, onDe
       ref={dragHandle}
       onClick={() => {
         onSelectNode(data.id);
+      }}
+      onDoubleClick={() => {
+        if (isExpandable) node.toggle();
       }}
     >
       {isExpandable && (

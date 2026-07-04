@@ -26,7 +26,6 @@ export function CodeEditor({
 }: CodeEditorProps) {
   const editorRef = useRef<EditorInstance | null>(null);
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
-  const isProgrammaticJumpRef = useRef(false);
   const onCursorMoveRef = useRef(onCursorMove);
   const decorationsRef = useRef<string[]>([]);
 
@@ -84,7 +83,6 @@ export function CodeEditor({
 
     editor.onDidChangeCursorPosition((e) => {
       updateActiveLine(e.position.lineNumber);
-      if (isProgrammaticJumpRef.current) return;
       onCursorMoveRef.current(e.position.lineNumber);
     });
   };
@@ -94,15 +92,11 @@ export function CodeEditor({
     const info = positionMap.get(jumpTarget);
     if (!info) return;
 
-    isProgrammaticJumpRef.current = true;
     editorRef.current.revealLineInCenter(info.startLine);
     editorRef.current.setPosition({
       lineNumber: info.startLine,
       column: 1,
     });
-    setTimeout(() => {
-      isProgrammaticJumpRef.current = false;
-    }, 100);
   }, [jumpTarget, positionMap]);
 
   return (

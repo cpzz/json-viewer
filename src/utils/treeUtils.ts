@@ -11,6 +11,17 @@ export function findNode(nodes: JsonTreeNode[], id: string): JsonTreeNode | null
   return null;
 }
 
+export function findParent(nodes: JsonTreeNode[], id: string): JsonTreeNode | null {
+  for (const node of nodes) {
+    if (node.children) {
+      if (node.children.some(c => c.id === id)) return node;
+      const found = findParent(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 export function updateNode(
   nodes: JsonTreeNode[],
   id: string,

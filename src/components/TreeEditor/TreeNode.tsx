@@ -1,17 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 import { NodeRendererProps } from 'react-arborist';
-import { JsonTreeNode, JsonNodeType } from '../../types';
+import { JsonTreeNode } from '../../types';
 import styles from './TreeEditor.module.css';
 
 interface TreeNodeProps extends NodeRendererProps<JsonTreeNode> {
   activeNodeId: string | null;
   onUpdate: (id: string, updates: Partial<JsonTreeNode>) => void;
   onDelete: (id: string) => void;
-  onAddChild: (parentId: string) => void;
+  onRequestAddChild: (parentId: string) => void;
   onSelectNode: (id: string) => void;
 }
 
-export function TreeNode({ node, style, dragHandle, activeNodeId, onUpdate, onDelete, onAddChild, onSelectNode }: TreeNodeProps) {
+export function TreeNode({ node, style, dragHandle, activeNodeId, onUpdate, onDelete, onRequestAddChild, onSelectNode }: TreeNodeProps) {
   const data = node.data;
   const indent = node.level * 20 + 8;
   const [editing, setEditing] = useState<'key' | 'value' | null>(null);
@@ -96,18 +96,6 @@ export function TreeNode({ node, style, dragHandle, activeNodeId, onUpdate, onDe
     }
   };
 
-  const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newType = e.target.value as JsonNodeType;
-    let newValue: unknown = data.value;
-    if (newType === 'string') newValue = String(data.value ?? '');
-    else if (newType === 'number') newValue = Number(data.value) || 0;
-    else if (newType === 'boolean') newValue = Boolean(data.value);
-    else if (newType === 'null') newValue = null;
-    else if (newType === 'object') { newValue = {}; }
-    else if (newType === 'array') { newValue = []; }
-    onUpdate(data.id, { type: newType, value: newValue });
-  };
-
   return (
     <div
       data-node-id={data.id}
@@ -165,24 +153,11 @@ export function TreeNode({ node, style, dragHandle, activeNodeId, onUpdate, onDe
       )}
 
       <div className={styles.actions}>
-        <select
-          className={styles.typeSelect}
-          value={data.type}
-          onChange={handleTypeChange}
-          onClick={(e) => e.stopPropagation()}
-          title="切换类型"
-        >
-          <option value="string">str</option>
-          <option value="number">num</option>
-          <option value="boolean">bool</option>
-          <option value="null">null</option>
-          <option value="object">obj</option>
-          <option value="array">arr</option>
-        </select>
+        <span className={styles.typeBadge}>{data.type}</span>
         {isExpandable && (
           <button
             className={styles.actionBtn}
-            onClick={(e) => { e.stopPropagation(); onAddChild(data.id); }}
+            onClick={(e) => { e.stopPropagation(); onRequestAddChild(data.id); }}
             title="添加子节点"
           >
             +

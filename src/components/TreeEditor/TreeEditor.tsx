@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Tree, NodeRendererProps, NodeApi } from 'react-arborist';
-import { JsonTreeNode } from '../../types';
-import { updateNode, removeNode, addChild } from '../../utils/treeUtils';
+import { JsonTreeNode, JsonNodeType } from '../../types';
+import { updateNode, removeNode, addChild, findParent } from '../../utils/treeUtils';
 import { TreeNode } from './TreeNode';
+import { AddNodeDialog } from './AddNodeDialog';
 import styles from './TreeEditor.module.css';
 
 interface TreeEditorProps {
@@ -22,6 +23,9 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
   const containerRef = useRef<HTMLDivElement>(null);
   const treeRef = useRef<{ scrollTo: (id: string) => void } | null>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [pendingAddParentId, setPendingAddParentId] = useState<string | null>(null);
+  const pendingScrollRef = useRef<string | null>(null);
+  const ignoreFocusRef = useRef(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -56,6 +60,18 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
     }
   }, [scrollTarget]);
 
+  // 新建节点后滚动到该节点
+  useEffect(() => {
+    if (!pendingScrollRef.current || !treeRef.current) return;
+    try {
+      treeRef.current.scrollTo(pendingScrollRef.current);
+    } catch {
+      // 节点可能还未渲染完成
+    }
+    pendingScrollRef.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
   const handleUpdate = useCallback(
     (id: string, updates: Partial<JsonTreeNode>) => {
       const newTree = updateNode(data, id, node => ({ ...node, ...updates }));
@@ -66,25 +82,46 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
 
   const handleDelete = useCallback(
     (id: string) => {
+      let parentId: string | null = null;
+      if (id === activeNodeId) {
+        const parent = findParent(data, id);
+        if (parent) parentId = parent.id;
+      }
+      ignoreFocusRef.current = true;
       const newTree = removeNode(data, id);
       onChange(newTree);
+      if (parentId) {
+        onSelectNode(parentId);
+      }
     },
-    [data, onChange]
+    [data, onChange, activeNodeId, onSelectNode]
   );
 
-  const handleAddChild = useCallback(
-    (parentId: string) => {
+  const handleAddConfirm = useCallback(
+    (key: string, type: JsonNodeType) => {
+      if (!pendingAddParentId) return;
       const newNode: JsonTreeNode = {
         id: genId(),
-        key: 'newKey',
-        value: '',
-        type: 'string',
+        key,
+        value: type === 'null' ? null : '',
+        type,
       };
-      const newTree = addChild(data, parentId, newNode);
+      const newTree = addChild(data, pendingAddParentId, newNode);
       onChange(newTree);
+      setPendingAddParentId(null);
+      onSelectNode(newNode.id);
+      pendingScrollRef.current = newNode.id;
     },
-    [data, onChange]
+    [data, onChange, pendingAddParentId, onSelectNode]
   );
+
+  const handleAddCancel = useCallback(() => {
+    setPendingAddParentId(null);
+  }, []);
+
+  const handleRequestAddChild = useCallback((parentId: string) => {
+    setPendingAddParentId(parentId);
+  }, []);
 
   return (
     <div ref={containerRef} className={styles.container}>
@@ -100,7 +137,13 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
           rowHeight={32}
           indent={20}
           padding={8}
-          onFocus={(node: NodeApi<JsonTreeNode>) => onSelectNode(node.id)}
+          onFocus={(node: NodeApi<JsonTreeNode>) => {
+            if (ignoreFocusRef.current) {
+              ignoreFocusRef.current = false;
+              return;
+            }
+            onSelectNode(node.id);
+          }}
         >
           {(props: NodeRendererProps<JsonTreeNode>) => (
             <TreeNode
@@ -108,12 +151,17 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
               activeNodeId={activeNodeId}
               onUpdate={handleUpdate}
               onDelete={handleDelete}
-              onAddChild={handleAddChild}
+              onRequestAddChild={handleRequestAddChild}
               onSelectNode={onSelectNode}
             />
           )}
         </Tree>
       ) : null}
+      <AddNodeDialog
+        isOpen={pendingAddParentId !== null}
+        onConfirm={handleAddConfirm}
+        onCancel={handleAddCancel}
+      />
     </div>
   );
 }

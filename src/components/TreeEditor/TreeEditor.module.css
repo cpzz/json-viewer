@@ -109,22 +109,6 @@
   display: flex;
 }
 
-.typeSelect {
-  height: 20px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  border: 1px solid var(--border-strong);
-  border-radius: 2px;
-  font-size: 11px;
-  padding: 0 2px;
-  cursor: pointer;
-  outline: none;
-}
-
-.typeSelect:hover {
-  border-color: var(--accent);
-}
-
 .actionBtn {
   width: 20px;
   height: 20px;
@@ -144,4 +128,12 @@
 .actionBtn:hover {
   background: var(--accent);
   color: var(--text-bright);
+}
+
+.typeBadge {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-right: 4px;
+  opacity: 0.7;
+  letter-spacing: 0.3px;
 }

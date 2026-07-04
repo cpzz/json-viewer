@@ -40,5 +40,11 @@ export function useFileOperations() {
     return false;
   }, []);
 
-  return { openFile, saveFile, saveAs, currentFilePath, setCurrentFilePath };
+  const reloadFile = useCallback(async (): Promise<string> => {
+    if (!currentFilePath) throw new Error('没有已打开的文件');
+    const content = await window.electronAPI.readFile(currentFilePath);
+    return content;
+  }, [currentFilePath]);
+
+  return { openFile, saveFile, saveAs, reloadFile, currentFilePath, setCurrentFilePath };
 }

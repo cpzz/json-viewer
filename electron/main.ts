@@ -70,3 +70,9 @@ ipcMain.handle('file:read', async (_event, filePath: string) => {
 ipcMain.handle('file:write', async (_event, filePath: string, content: string) => {
   fs.writeFileSync(filePath, content, 'utf-8');
 });
+
+// IPC: 消息对话框
+ipcMain.handle('dialog:showMessageBox', async (_event, options: { type: string; title: string; message: string; buttons: string[]; cancelId: number }) => {
+  const result = await dialog.showMessageBox(mainWindow!, options);
+  return result;
+});

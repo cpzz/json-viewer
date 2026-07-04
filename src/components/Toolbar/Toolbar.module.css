@@ -47,6 +47,16 @@
   background: var(--bg-selected);
 }
 
+.iconBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.iconBtn:disabled:hover {
+  background: transparent;
+  color: var(--text-primary);
+}
+
 .iconBtn.active {
   color: var(--accent);
 }

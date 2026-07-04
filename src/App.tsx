@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Toolbar } from './components/Toolbar/Toolbar';
 import { SplitPane } from './components/SplitPane/SplitPane';
 import { TreeEditor } from './components/TreeEditor/TreeEditor';
@@ -12,13 +12,16 @@ type Theme = 'dark' | 'light';
 
 function App() {
   const { jsonText, treeData, parseError, positionMap, updateFromTree, updateFromCode } = useJsonSync();
-  const { openFile, saveFile, currentFilePath } = useFileOperations();
+  const { openFile, saveFile, reloadFile, currentFilePath } = useFileOperations();
   const [leftVisible, setLeftVisible] = useState(true);
   const [rightVisible, setRightVisible] = useState(true);
   const [theme, setTheme] = useState<Theme>('dark');
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [jumpTarget, setJumpTarget] = useState<string | null>(null);
   const [scrollTarget, setScrollTarget] = useState<{ id: string; nonce: number } | null>(null);
+  const savedContentRef = useRef<string>('');
+  const isDirty = jsonText !== savedContentRef.current;
+  const canRefresh = currentFilePath !== null;
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -34,6 +37,7 @@ function App() {
   const handleOpen = async () => {
     const content = await openFile();
     if (content) {
+      savedContentRef.current = content;
       updateFromCode(content);
       setActiveNodeId(null);
       setJumpTarget(null);
@@ -41,11 +45,43 @@ function App() {
   };
 
   const handleSave = async () => {
-    await saveFile(jsonText);
+    const success = await saveFile(jsonText);
+    if (success) {
+      savedContentRef.current = jsonText;
+    }
   };
 
-  const handleRefresh = () => {
-    updateFromCode(jsonText);
+  const handleRefresh = async () => {
+    if (isDirty) {
+      const result = await window.electronAPI.showMessageBox({
+        type: 'question',
+        title: '未保存的更改',
+        message: '当前文件有未保存的更改，是否保存后再刷新？',
+        buttons: ['保存', '不保存', '取消'],
+        cancelId: 2,
+      });
+      if (result.response === 2) return; // 取消
+      if (result.response === 0) {
+        const saved = await saveFile(jsonText);
+        if (saved) savedContentRef.current = jsonText;
+        else return; // 保存失败则中止
+      }
+    }
+    try {
+      const content = await reloadFile();
+      savedContentRef.current = content;
+      updateFromCode(content);
+      setActiveNodeId(null);
+      setJumpTarget(null);
+    } catch (e) {
+      await window.electronAPI.showMessageBox({
+        type: 'error',
+        title: '刷新失败',
+        message: `无法重新读取文件：\n${(e as Error).message}`,
+        buttons: ['确定'],
+        cancelId: 0,
+      });
+    }
   };
 
   const toggleTheme = () => {
@@ -85,6 +121,7 @@ function App() {
         onOpen={handleOpen}
         onSave={handleSave}
         onRefresh={handleRefresh}
+        canRefresh={canRefresh}
         leftVisible={leftVisible}
         rightVisible={rightVisible}
         onToggleLeft={() => setLeftVisible(v => !v)}

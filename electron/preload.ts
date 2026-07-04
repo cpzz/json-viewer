@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveFile: (content: string) => ipcRenderer.invoke('dialog:saveFile', content),
   readFile: (filePath: string) => ipcRenderer.invoke('file:read', filePath),
   writeFile: (filePath: string, content: string) => ipcRenderer.invoke('file:write', filePath, content),
+  showMessageBox: (options: { type: string; title: string; message: string; buttons: string[]; cancelId: number }) =>
+    ipcRenderer.invoke('dialog:showMessageBox', options),
   onFileDrop: (callback: (filePath: string) => void) => {
     ipcRenderer.on('file:drop', (_event, filePath) => callback(filePath));
   },

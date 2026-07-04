@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useLayoutEffect } from 'react';
 import Editor, { OnMount, OnChange } from '@monaco-editor/react';
 import { PositionInfo } from '../../utils/positionMap';
 import styles from './CodeEditor.module.css';
@@ -26,6 +26,11 @@ export function CodeEditor({
 }: CodeEditorProps) {
   const editorRef = useRef<EditorInstance | null>(null);
   const isProgrammaticJumpRef = useRef(false);
+  const onCursorMoveRef = useRef(onCursorMove);
+
+  useLayoutEffect(() => {
+    onCursorMoveRef.current = onCursorMove;
+  }, [onCursorMove]);
 
   const handleChange: OnChange = (val) => {
     onChange(val ?? '');
@@ -37,11 +42,10 @@ export function CodeEditor({
 
     editor.onDidChangeCursorPosition((e) => {
       if (isProgrammaticJumpRef.current) return;
-      onCursorMove(e.position.lineNumber);
+      onCursorMoveRef.current(e.position.lineNumber);
     });
   };
 
-  // jumpTarget 变化时跳转 Monaco（仅树点击触发）
   useEffect(() => {
     if (!editorRef.current || !jumpTarget) return;
     const info = positionMap.get(jumpTarget);

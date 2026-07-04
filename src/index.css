@@ -81,3 +81,15 @@ body,
 ::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-hover);
 }
+
+[role="treeitem"]:focus {
+  outline: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+[role="treeitem"]:focus-visible {
+  outline: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}

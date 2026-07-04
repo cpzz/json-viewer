@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Tree, NodeRendererProps } from 'react-arborist';
+import { Tree, NodeRendererProps, NodeApi } from 'react-arborist';
 import { JsonTreeNode } from '../../types';
 import { updateNode, removeNode, addChild } from '../../utils/treeUtils';
 import { TreeNode } from './TreeNode';
@@ -10,6 +10,7 @@ interface TreeEditorProps {
   onChange: (data: JsonTreeNode[]) => void;
   activeNodeId: string | null;
   onSelectNode: (id: string) => void;
+  scrollTarget: { id: string; nonce: number } | null;
 }
 
 let newIdCounter = 0;
@@ -17,8 +18,9 @@ function genId(): string {
   return `new_${Date.now()}_${++newIdCounter}`;
 }
 
-export function TreeEditor({ data, onChange, activeNodeId, onSelectNode }: TreeEditorProps) {
+export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollTarget }: TreeEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const treeRef = useRef<{ scrollTo: (id: string) => void } | null>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
@@ -30,6 +32,29 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode }: TreeE
     observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const handleFocus = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.getAttribute('role') === 'treeitem') {
+        target.style.outline = 'none';
+      }
+    };
+    containerRef.current.addEventListener('focus', handleFocus, true);
+    return () => {
+      containerRef.current?.removeEventListener('focus', handleFocus, true);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!scrollTarget || !treeRef.current) return;
+    try {
+      treeRef.current.scrollTo(scrollTarget.id);
+    } catch {
+      // 节点可能不可见或已被删除
+    }
+  }, [scrollTarget]);
 
   const handleUpdate = useCallback(
     (id: string, updates: Partial<JsonTreeNode>) => {
@@ -67,6 +92,7 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode }: TreeE
         <div className={styles.empty}>打开一个 JSON 文件开始编辑</div>
       ) : dimensions.height > 0 ? (
         <Tree
+          ref={treeRef}
           data={data}
           width={dimensions.width}
           height={dimensions.height}
@@ -74,6 +100,7 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode }: TreeE
           rowHeight={32}
           indent={20}
           padding={8}
+          onFocus={(node: NodeApi<JsonTreeNode>) => onSelectNode(node.id)}
         >
           {(props: NodeRendererProps<JsonTreeNode>) => (
             <TreeNode

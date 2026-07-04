@@ -18,6 +18,7 @@ function App() {
   const [theme, setTheme] = useState<Theme>('dark');
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [jumpTarget, setJumpTarget] = useState<string | null>(null);
+  const [scrollTarget, setScrollTarget] = useState<{ id: string; nonce: number } | null>(null);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -53,10 +54,10 @@ function App() {
 
   const handleCursorMove = useCallback((lineNumber: number) => {
     const nodeId = findNodeIdByLine(positionMap, lineNumber);
-    if (nodeId && nodeId !== activeNodeId) {
-      setActiveNodeId(nodeId);
+    if (nodeId) {
+      setScrollTarget({ id: nodeId, nonce: Date.now() });
     }
-  }, [positionMap, activeNodeId]);
+  }, [positionMap]);
 
   const handleSelectNode = useCallback((id: string) => {
     setActiveNodeId(id);
@@ -98,6 +99,7 @@ function App() {
           onChange={updateFromTree}
           activeNodeId={activeNodeId}
           onSelectNode={handleSelectNode}
+          scrollTarget={scrollTarget}
         />
         <CodeEditor
           value={jsonText}

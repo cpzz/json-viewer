@@ -4,14 +4,14 @@ import { JsonTreeNode, JsonNodeType } from '../../types';
 import styles from './TreeEditor.module.css';
 
 interface TreeNodeProps extends NodeRendererProps<JsonTreeNode> {
+  activeNodeId: string | null;
   onUpdate: (id: string, updates: Partial<JsonTreeNode>) => void;
   onDelete: (id: string) => void;
   onAddChild: (parentId: string) => void;
-  activeNodeId: string | null;
   onSelectNode: (id: string) => void;
 }
 
-export function TreeNode({ node, style, dragHandle, onUpdate, onDelete, onAddChild, activeNodeId, onSelectNode }: TreeNodeProps) {
+export function TreeNode({ node, style, dragHandle, activeNodeId, onUpdate, onDelete, onAddChild, onSelectNode }: TreeNodeProps) {
   const data = node.data;
   const indent = node.level * 20 + 8;
   const [editing, setEditing] = useState<'key' | 'value' | null>(null);
@@ -110,11 +110,11 @@ export function TreeNode({ node, style, dragHandle, onUpdate, onDelete, onAddChi
 
   return (
     <div
-      className={`${styles.nodeRow} ${node.isSelected ? styles.selected : ''} ${isActive ? styles.active : ''}`}
+      data-node-id={data.id}
+      className={`${styles.nodeRow} ${isActive ? styles.active : ''}`}
       style={{ ...style, paddingLeft: indent }}
       ref={dragHandle}
       onClick={() => {
-        node.select();
         onSelectNode(data.id);
       }}
     >

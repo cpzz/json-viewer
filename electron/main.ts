@@ -1,10 +1,11 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
 import path from 'path';
 import fs from 'fs';
 
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
+  Menu.setApplicationMenu(null);  // 关闭窗口菜单
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,

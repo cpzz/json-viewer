@@ -75,10 +75,19 @@ function App() {
       editorStateRef.current.set(filePath, { cursorLine: 1, activeNodeId: null });
     }
 
-    // 3. 同步更新 ref（不等 useEffect，防止 cursor event 用旧路径覆盖 map）
+    // 3. 格式化 JSON 为标准格式，确保行号与 positionMap 模拟一致
+    //    先解析再 stringify，统一处理内联数组等非标格式
+    let displayContent = content;
+    try {
+      const parsed = JSON.parse(content);
+      displayContent = JSON.stringify(parsed, null, 2);
+    } catch {
+      // 解析失败则保持原内容
+    }
+    // 4. 同步更新 ref（不等 useEffect，防止 cursor event 用旧路径覆盖 map）
     currentFilePathRef.current = filePath;
-    savedContentRef.current = content;
-    updateFromCode(content, true);  // true = 即时解析，不等 300ms 防抖
+    savedContentRef.current = displayContent;
+    updateFromCode(displayContent, true);
     setCurrentFilePath(filePath);
 
     // 4. 从 map 恢复目标文件的位置

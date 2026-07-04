@@ -44,7 +44,9 @@ export function useJsonSync() {
       try {
         if (newText.trim()) {
           const parsed = JSON.parse(newText);
+          const formatted = JSON.stringify(parsed, null, 2);
           const tree = jsonToTree(parsed);
+          setJsonText(formatted);
           setTreeData(tree);
           setPositionMap(buildPositionMap(tree));
         } else {
@@ -60,7 +62,9 @@ export function useJsonSync() {
         try {
           if (newText.trim()) {
             const parsed = JSON.parse(newText);
+            const formatted = JSON.stringify(parsed, null, 2);
             const tree = jsonToTree(parsed);
+            setJsonText(formatted);
             setTreeData(tree);
             setPositionMap(buildPositionMap(tree));
           } else {

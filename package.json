@@ -5,7 +5,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "tsc && vite",
-    "win": "tsc && vite build && electron .",
+    "win": "tsc && vite --config vite.config.ts",
     "server": "vite preview"
   },
   "dependencies": {

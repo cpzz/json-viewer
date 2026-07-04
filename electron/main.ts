@@ -97,11 +97,11 @@ ipcMain.handle('dialog:openDirectory', async () => {
   return { filePaths: result.filePaths };
 });
 
-// IPC: 读取目录内容
+// IPC: 读取目录内容（只显示 json 文件和目录）
 ipcMain.handle('fs:readDirectory', async (_event, dirPath: string) => {
   const entries = fs.readdirSync(dirPath, { withFileTypes: true });
   return entries
-    .filter(entry => entry.isFile() || entry.isDirectory())
+    .filter(entry => entry.isDirectory() || (entry.isFile() && /\.json$/i.test(entry.name)))
     .map(entry => ({
       name: entry.name,
       path: path.join(dirPath, entry.name),

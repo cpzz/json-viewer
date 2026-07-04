@@ -18,7 +18,7 @@ interface EditorPosState {
 
 function App() {
   const { jsonText, treeData, parseError, positionMap, updateFromTree, updateFromCode, isUpdatingFromTreeRef } = useJsonSync();
-  const { openFile, saveFile, saveAs, reloadFile, currentFilePath, setCurrentFilePath } = useFileOperations();
+  const { saveFile, saveAs, reloadFile, currentFilePath, setCurrentFilePath } = useFileOperations();
   const [leftVisible, setLeftVisible] = useState(true);
   const [rightVisible, setRightVisible] = useState(true);
   const [explorerVisible, setExplorerVisible] = useState(true);
@@ -87,9 +87,24 @@ function App() {
   }, [activeNodeId, updateFromCode, setCurrentFilePath]);
 
   const handleOpen = async () => {
-    const { content, filePath } = await openFile();
-    if (content && filePath) {
-      fileContentReady(filePath, content);
+    const result = await window.electronAPI.openFiles();
+    if (result.filePaths.length > 0) {
+      // 将选中的文件加入文件列表
+      setFileItems(prev => {
+        const existing = new Set(prev.map(i => i.path));
+        const toAdd = result.filePaths
+          .filter(p => !existing.has(p))
+          .map(p => ({
+            path: p,
+            name: p.split('\\').pop()?.split('/').pop() || p,
+            type: 'file' as const,
+          }));
+        return [...prev, ...toAdd];
+      });
+      // 加载第一个文件
+      const firstPath = result.filePaths[0];
+      const content = await window.electronAPI.readFile(firstPath);
+      fileContentReady(firstPath, content);
     }
   };
 

@@ -11,8 +11,13 @@ import styles from './App.module.css';
 
 type Theme = 'dark' | 'light';
 
+interface EditorPosState {
+  cursorLine: number;
+  activeNodeId: string | null;
+}
+
 function App() {
-  const { jsonText, treeData, parseError, positionMap, updateFromTree, updateFromCode } = useJsonSync();
+  const { jsonText, treeData, parseError, positionMap, updateFromTree, updateFromCode, isUpdatingFromTreeRef } = useJsonSync();
   const { openFile, saveFile, saveAs, reloadFile, currentFilePath, setCurrentFilePath } = useFileOperations();
   const [leftVisible, setLeftVisible] = useState(true);
   const [rightVisible, setRightVisible] = useState(true);
@@ -27,6 +32,12 @@ function App() {
   const [explorerWidth, setExplorerWidth] = useState(250);
   const [isExplorerDragging, setIsExplorerDragging] = useState(false);
   const [resetCursorKey, setResetCursorKey] = useState(0);
+  const [resetCursorLine, setResetCursorLine] = useState(1);
+  const [treeRestoreSig, setTreeRestoreSig] = useState(0);
+  const [treeRestoreTarget, setTreeRestoreTarget] = useState<string | null>(null);
+  const editorStateRef = useRef<Map<string, EditorPosState>>(new Map());
+  const lastCursorLineRef = useRef(1);
+  const currentFilePathRef = useRef<string | null>(null);
   const isDirty = jsonText !== savedContentRef.current;
   const canSave = isDirty;
   const canRefresh = currentFilePath !== null && isDirty;
@@ -35,12 +46,52 @@ function App() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
+  // 同步 currentFilePath 到 ref
+  useEffect(() => {
+    currentFilePathRef.current = currentFilePath;
+  }, [currentFilePath]);
+
   useEffect(() => {
     const name = currentFilePath
       ? currentFilePath.split('\\').pop()?.split('/').pop()
       : null;
     document.title = name ? `JSON 编辑器 - ${name}` : 'JSON 编辑器';
   }, [currentFilePath]);
+
+  // 统一的文件加载处理：切换文件时保存旧状态、加载新内容、恢复新文件状态
+  const fileContentReady = useCallback((filePath: string, content: string) => {
+    // 1. 保存当前文件状态到 map
+    const oldPath = currentFilePathRef.current;
+    if (oldPath && editorStateRef.current.has(oldPath)) {
+      const curState = editorStateRef.current.get(oldPath)!;
+      curState.cursorLine = lastCursorLineRef.current;
+      curState.activeNodeId = activeNodeId;
+    }
+    // 2. 确保目标文件有 map 条目（默认第一行/第一节点）
+    if (!editorStateRef.current.has(filePath)) {
+      editorStateRef.current.set(filePath, { cursorLine: 1, activeNodeId: null });
+    }
+
+    // 3. 同步更新 ref（不等 useEffect，防止 cursor event 用旧路径覆盖 map）
+    currentFilePathRef.current = filePath;
+    savedContentRef.current = content;
+    updateFromCode(content, true);  // true = 即时解析，不等 300ms 防抖
+    setCurrentFilePath(filePath);
+
+    // 4. 从 map 恢复目标文件的位置
+    const state = editorStateRef.current.get(filePath)!;
+    setResetCursorLine(state.cursorLine);
+    setResetCursorKey(k => k + 1);
+    setTreeRestoreTarget(state.activeNodeId);
+    setTreeRestoreSig(s => s + 1);
+  }, [activeNodeId, updateFromCode, setCurrentFilePath]);
+
+  const handleOpen = async () => {
+    const { content, filePath } = await openFile();
+    if (content && filePath) {
+      fileContentReady(filePath, content);
+    }
+  };
 
   // 拖拽打开文件/目录
   useEffect(() => {
@@ -66,11 +117,7 @@ function App() {
         if (results.length === 1 && results[0].type === 'file') {
           try {
             const content = await window.electronAPI.readFile(results[0].path);
-            savedContentRef.current = content;
-            updateFromCode(content);
-            setActiveNodeId(null);
-            setJumpTarget(null);
-            setCurrentFilePath(results[0].path);
+            fileContentReady(results[0].path, content);
           } catch {
             // 静默失败
           }
@@ -84,18 +131,7 @@ function App() {
       window.removeEventListener('drop', handleDrop);
       window.removeEventListener('dragover', handleDragOver);
     };
-  }, [updateFromCode, setCurrentFilePath]);
-
-  const handleOpen = async () => {
-    const content = await openFile();
-    if (content) {
-      savedContentRef.current = content;
-      updateFromCode(content);
-      setActiveNodeId(null);
-      setJumpTarget('__FIRST_LINE__');
-      setResetCursorKey(k => k + 1);
-    }
-  };
+  }, [fileContentReady]);
 
   const handleSave = async () => {
     const result = await window.electronAPI.showMessageBox({
@@ -156,28 +192,34 @@ function App() {
   };
 
   const handleCursorMove = useCallback((lineNumber: number) => {
+    lastCursorLineRef.current = lineNumber;
     const nodeId = findNodeIdByLine(positionMap, lineNumber);
     if (nodeId) {
       setActiveNodeId(nodeId);
       setScrollTarget({ id: nodeId, nonce: Date.now() });
+      // 保存到 editorStateMap
+      const path = currentFilePathRef.current;
+      if (path) {
+        editorStateRef.current.set(path, { cursorLine: lineNumber, activeNodeId: nodeId });
+      }
     }
   }, [positionMap]);
 
   const handleSelectNode = useCallback((id: string) => {
     setActiveNodeId(id);
     setJumpTarget(id);
+    // 保存到 editorStateMap
+    const path = currentFilePathRef.current;
+    if (path) {
+      editorStateRef.current.set(path, { cursorLine: lastCursorLineRef.current, activeNodeId: id });
+    }
   }, []);
 
   // 文件列表：从文件管理器打开文件
   const handleOpenFileFromExplorer = useCallback(async (filePath: string) => {
     try {
       const content = await window.electronAPI.readFile(filePath);
-      savedContentRef.current = content;
-      updateFromCode(content);
-      setActiveNodeId(null);
-      setJumpTarget(null);
-      setResetCursorKey(k => k + 1);
-      setCurrentFilePath(filePath);
+      fileContentReady(filePath, content);
     } catch (e) {
       await window.electronAPI.showMessageBox({
         type: 'error',
@@ -187,10 +229,12 @@ function App() {
         cancelId: 0,
       });
     }
-  }, [updateFromCode, setCurrentFilePath]);
+  }, [fileContentReady]);
 
   // 文件列表：从列表移除
   const handleRemoveFileItem = useCallback((path: string) => {
+    // 清除 editorStateMap 中的记录
+    editorStateRef.current.delete(path);
     if (path === currentFilePath) {
       savedContentRef.current = '';
       updateFromCode('');
@@ -293,6 +337,8 @@ function App() {
             activeNodeId={activeNodeId}
             onSelectNode={handleSelectNode}
             scrollTarget={scrollTarget}
+            restoreSignal={treeRestoreSig}
+            restoreTarget={treeRestoreTarget}
           />
           <CodeEditor
             value={jsonText}
@@ -303,6 +349,8 @@ function App() {
             jumpTarget={jumpTarget}
             onCursorMove={handleCursorMove}
             resetCursorKey={resetCursorKey}
+            resetCursorLine={resetCursorLine}
+            isUpdatingFromTreeRef={isUpdatingFromTreeRef}
           />
         </SplitPane>
       </div>

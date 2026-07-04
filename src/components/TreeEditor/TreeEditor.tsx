@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Tree, NodeRendererProps, NodeApi } from 'react-arborist';
+import { Tree, NodeRendererProps, NodeApi, TreeApi } from 'react-arborist';
 import { JsonTreeNode, JsonNodeType } from '../../types';
 import { updateNode, removeNode, addChild, findParent } from '../../utils/treeUtils';
 import { TreeNode } from './TreeNode';
@@ -12,6 +12,8 @@ interface TreeEditorProps {
   activeNodeId: string | null;
   onSelectNode: (id: string) => void;
   scrollTarget: { id: string; nonce: number } | null;
+  restoreSignal: number;
+  restoreTarget: string | null;
 }
 
 let newIdCounter = 0;
@@ -19,9 +21,9 @@ function genId(): string {
   return `new_${Date.now()}_${++newIdCounter}`;
 }
 
-export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollTarget }: TreeEditorProps) {
+export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollTarget, restoreSignal, restoreTarget }: TreeEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const treeRef = useRef<{ scrollTo: (id: string) => void } | null>(null);
+  const treeRef = useRef<TreeApi<JsonTreeNode> | null>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [pendingAddParentId, setPendingAddParentId] = useState<string | null>(null);
   const pendingScrollRef = useRef<string | null>(null);
@@ -59,6 +61,29 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
       // 节点可能不可见或已被删除
     }
   }, [scrollTarget]);
+
+  // 两阶段聚焦：收到 restoreSignal 信号后，等待 data 就绪再聚焦
+  // null = 无待聚焦; { targetId: null } = 聚焦第一个根节点; { targetId: 'xxx' } = 聚焦指定节点
+  const pendingRestoreRef = useRef<{ targetId: string | null } | null>(null);
+  const prevRestoreSigRef = useRef(0);
+
+  useEffect(() => {
+    if (restoreSignal !== prevRestoreSigRef.current) {
+      prevRestoreSigRef.current = restoreSignal;
+      pendingRestoreRef.current = { targetId: restoreTarget };
+    }
+  }, [restoreSignal, restoreTarget]);
+
+  useEffect(() => {
+    if (pendingRestoreRef.current && data.length > 0) {
+      const { targetId } = pendingRestoreRef.current;
+      pendingRestoreRef.current = null;
+      const nodeId = targetId ?? data[0].id;
+      treeRef.current?.focus(nodeId, { scroll: true });
+      onSelectNode(nodeId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   // 新建节点后滚动到该节点
   useEffect(() => {

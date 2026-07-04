@@ -3,14 +3,14 @@ import { useState, useCallback } from 'react';
 export function useFileOperations() {
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
 
-  const openFile = useCallback(async (): Promise<string> => {
+  const openFile = useCallback(async (): Promise<{ content: string; filePath: string | null }> => {
     const result = await window.electronAPI.openFile();
     if (result.filePath) {
       const content = await window.electronAPI.readFile(result.filePath);
       setCurrentFilePath(result.filePath);
-      return content;
+      return { content, filePath: result.filePath };
     }
-    return '';
+    return { content: '', filePath: null };
   }, []);
 
   const saveFile = useCallback(

@@ -14,6 +14,8 @@ interface CodeEditorProps {
   jumpTarget: string | null;
   onCursorMove: (lineNumber: number) => void;
   resetCursorKey: number;
+  resetCursorLine: number;
+  isUpdatingFromTreeRef: React.MutableRefObject<boolean>;
 }
 
 export function CodeEditor({
@@ -25,12 +27,13 @@ export function CodeEditor({
   jumpTarget,
   onCursorMove,
   resetCursorKey,
+  resetCursorLine,
+  isUpdatingFromTreeRef,
 }: CodeEditorProps) {
   const editorRef = useRef<EditorInstance | null>(null);
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
   const onCursorMoveRef = useRef(onCursorMove);
   const decorationsRef = useRef<string[]>([]);
-  const suppressCursorRef = useRef(false);
 
   useLayoutEffect(() => {
     onCursorMoveRef.current = onCursorMove;
@@ -84,15 +87,9 @@ export function CodeEditor({
     const pos = editor.getPosition();
     if (pos) updateActiveLine(pos.lineNumber);
 
-    // 当内容被程序替换时（来自树更新），抑制下一个光标事件的回调
-    editor.onDidChangeModelContent(() => {
-      suppressCursorRef.current = true;
-    });
-
     editor.onDidChangeCursorPosition((e) => {
       updateActiveLine(e.position.lineNumber);
-      if (suppressCursorRef.current) {
-        suppressCursorRef.current = false;
+      if (isUpdatingFromTreeRef.current) {
         return;
       }
       onCursorMoveRef.current(e.position.lineNumber);
@@ -111,14 +108,14 @@ export function CodeEditor({
     });
   }, [jumpTarget, positionMap]);
 
-  // 打开新文件时重置光标到第一行
+  // 打开新文件或恢复历史位置时，跳转到目标行
   useEffect(() => {
     if (!editorRef.current) return;
-    editorRef.current.setPosition({ lineNumber: 1, column: 1 });
-    editorRef.current.revealLineInCenter(1);
-    updateActiveLine(1);
+    editorRef.current.setPosition({ lineNumber: resetCursorLine, column: 1 });
+    editorRef.current.revealLineInCenter(resetCursorLine);
+    updateActiveLine(resetCursorLine);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetCursorKey]);
+  }, [resetCursorKey, resetCursorLine]);
 
   return (
     <div className={styles.container}>

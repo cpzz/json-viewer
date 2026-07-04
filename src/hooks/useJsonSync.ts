@@ -29,15 +29,18 @@ export function useJsonSync() {
     }, 0);
   }, []);
 
-  const updateFromCode = useCallback((newText: string) => {
+  const updateFromCode = useCallback((newText: string, immediate?: boolean) => {
     if (isUpdatingFromTreeRef.current) return;
 
     setJsonText(newText);
 
     if (treeUpdateTimerRef.current) {
       clearTimeout(treeUpdateTimerRef.current);
+      treeUpdateTimerRef.current = null;
     }
-    treeUpdateTimerRef.current = setTimeout(() => {
+
+    if (immediate) {
+      // 文件加载时同步解析，避免 treeData 延迟导致切换文件后聚焦不准确
       try {
         if (newText.trim()) {
           const parsed = JSON.parse(newText);
@@ -52,8 +55,25 @@ export function useJsonSync() {
       } catch (e) {
         setParseError((e as Error).message);
       }
-    }, 300);
+    } else {
+      treeUpdateTimerRef.current = setTimeout(() => {
+        try {
+          if (newText.trim()) {
+            const parsed = JSON.parse(newText);
+            const tree = jsonToTree(parsed);
+            setTreeData(tree);
+            setPositionMap(buildPositionMap(tree));
+          } else {
+            setTreeData([]);
+            setPositionMap(new Map());
+          }
+          setParseError(null);
+        } catch (e) {
+          setParseError((e as Error).message);
+        }
+      }, 300);
+    }
   }, []);
 
-  return { jsonText, treeData, parseError, positionMap, updateFromTree, updateFromCode };
+  return { jsonText, treeData, parseError, positionMap, updateFromTree, updateFromCode, isUpdatingFromTreeRef };
 }

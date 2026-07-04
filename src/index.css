@@ -18,6 +18,7 @@
   --text-muted: #666;
   --text-bright: #fff;
   --accent: #4a9eff;
+  --highlight-bg: #264f78;
   --key-color: #9cdcfe;
   --string-color: #ce9178;
   --number-color: #b5cea8;
@@ -43,6 +44,7 @@
   --text-muted: #999;
   --text-bright: #000;
   --accent: #007acc;
+  --highlight-bg: #cce5ff;
   --key-color: #001080;
   --string-color: #a31515;
   --number-color: #098658;
@@ -92,4 +94,9 @@ body,
   outline: 0 !important;
   border: none !important;
   box-shadow: none !important;
+}
+
+/* Monaco 当前行左边线 */
+.activeLineLeftBorder {
+  box-shadow: inset 2px 0 0 var(--accent) !important;
 }

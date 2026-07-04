@@ -55,6 +55,7 @@ function App() {
   const handleCursorMove = useCallback((lineNumber: number) => {
     const nodeId = findNodeIdByLine(positionMap, lineNumber);
     if (nodeId) {
+      setActiveNodeId(nodeId);
       setScrollTarget({ id: nodeId, nonce: Date.now() });
     }
   }, [positionMap]);

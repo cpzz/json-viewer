@@ -1,5 +1,5 @@
-import { useRef, useEffect, useLayoutEffect } from 'react';
-import Editor, { OnMount, OnChange } from '@monaco-editor/react';
+import { useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import Editor, { OnMount, BeforeMount, OnChange } from '@monaco-editor/react';
 import { PositionInfo } from '../../utils/positionMap';
 import styles from './CodeEditor.module.css';
 
@@ -25,22 +25,65 @@ export function CodeEditor({
   onCursorMove,
 }: CodeEditorProps) {
   const editorRef = useRef<EditorInstance | null>(null);
+  const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
   const isProgrammaticJumpRef = useRef(false);
   const onCursorMoveRef = useRef(onCursorMove);
+  const decorationsRef = useRef<string[]>([]);
 
   useLayoutEffect(() => {
     onCursorMoveRef.current = onCursorMove;
   }, [onCursorMove]);
 
+  const updateActiveLine = useCallback((lineNumber: number) => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco) return;
+    decorationsRef.current = editor.deltaDecorations(decorationsRef.current, [
+      {
+        range: new monaco.Range(lineNumber, 1, lineNumber, 1),
+        options: {
+          isWholeLine: true,
+          className: 'activeLineLeftBorder',
+        },
+      },
+    ]);
+  }, []);
+
+  const handleBeforeMount: BeforeMount = (monaco) => {
+    monaco.editor.defineTheme('highlight-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.lineHighlightBackground': '#264f78',
+        'editor.lineHighlightBorder': '#00000000',
+      },
+    });
+    monaco.editor.defineTheme('highlight-light', {
+      base: 'vs',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.lineHighlightBackground': '#cce5ff',
+        'editor.lineHighlightBorder': '#00000000',
+      },
+    });
+  };
+
   const handleChange: OnChange = (val) => {
     onChange(val ?? '');
   };
 
-  const handleMount: OnMount = (editor) => {
+  const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
     editor.getModel()?.updateOptions({ tabSize: 2 });
 
+    const pos = editor.getPosition();
+    if (pos) updateActiveLine(pos.lineNumber);
+
     editor.onDidChangeCursorPosition((e) => {
+      updateActiveLine(e.position.lineNumber);
       if (isProgrammaticJumpRef.current) return;
       onCursorMoveRef.current(e.position.lineNumber);
     });
@@ -67,7 +110,8 @@ export function CodeEditor({
       <Editor
         height="100%"
         defaultLanguage="json"
-        theme={theme === 'dark' ? 'vs-dark' : 'light'}
+        beforeMount={handleBeforeMount}
+        theme={theme === 'dark' ? 'highlight-dark' : 'highlight-light'}
         value={value}
         onChange={handleChange}
         onMount={handleMount}

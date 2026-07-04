@@ -76,3 +76,46 @@ ipcMain.handle('dialog:showMessageBox', async (_event, options: { type: string; 
   const result = await dialog.showMessageBox(mainWindow!, options);
   return result;
 });
+
+// IPC: 打开多文件对话框
+ipcMain.handle('dialog:openFiles', async () => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'JSON 文件', extensions: ['json'] }],
+  });
+  if (result.canceled) return { filePaths: [] };
+  return { filePaths: result.filePaths };
+});
+
+// IPC: 打开目录对话框（多选）
+ipcMain.handle('dialog:openDirectory', async () => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    properties: ['openDirectory', 'multiSelections'],
+  });
+  if (result.canceled || result.filePaths.length === 0) return { filePaths: [] };
+  return { filePaths: result.filePaths };
+});
+
+// IPC: 读取目录内容
+ipcMain.handle('fs:readDirectory', async (_event, dirPath: string) => {
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+  return entries
+    .filter(entry => entry.isFile() || entry.isDirectory())
+    .map(entry => ({
+      name: entry.name,
+      path: path.join(dirPath, entry.name),
+      type: entry.isDirectory() ? 'directory' : 'file',
+    }));
+});
+
+// IPC: 批量获取文件/目录信息（用于拖拽）
+ipcMain.handle('fs:statBatch', async (_event, paths: string[]) => {
+  return paths.map(p => {
+    const stat = fs.statSync(p);
+    return {
+      path: p,
+      name: path.basename(p),
+      type: stat.isDirectory() ? 'directory' : 'file',
+    };
+  });
+});

@@ -1,0 +1,145 @@
+.container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  font-size: 13px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  user-select: none;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.addBtn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 2px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.addBtn:hover {
+  background: var(--accent);
+  color: var(--text-bright);
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.empty {
+  padding: 16px 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.loading {
+  padding: 8px 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding-left: 28px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 8px;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: background 0.1s;
+  position: relative;
+}
+
+.item:hover {
+  background: var(--bg-hover);
+}
+
+.icon {
+  width: 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+}
+
+.arrow {
+  font-size: 10px;
+  transition: transform 0.15s;
+  display: inline-block;
+  color: var(--text-secondary);
+}
+
+.arrowOpen {
+  transform: rotate(90deg);
+}
+
+.fileIcon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.removeBtn {
+  width: 18px;
+  height: 18px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 2px;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.item:hover .removeBtn {
+  display: flex;
+}
+
+.removeBtn:hover {
+  color: var(--accent);
+  background: transparent;
+}
+
+.children {
+  /* child items will be indented by their parent structure */
+}

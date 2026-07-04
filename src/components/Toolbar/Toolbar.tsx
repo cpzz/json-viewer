@@ -1,8 +1,9 @@
-import { FolderOpen, Save, RefreshCw, PanelLeft, PanelRight, Sun, Moon } from 'lucide-react';
+import { FolderOpen, Save, RefreshCw, PanelLeft, PanelRight, Sun, Moon, FolderTree, FolderPlus } from 'lucide-react';
 import styles from './Toolbar.module.css';
 
 interface ToolbarProps {
   onOpen: () => void;
+  onOpenDirectory: () => void;
   onSave: () => void;
   onRefresh: () => void;
   canRefresh: boolean;
@@ -11,6 +12,8 @@ interface ToolbarProps {
   rightVisible: boolean;
   onToggleLeft: () => void;
   onToggleRight: () => void;
+  explorerVisible: boolean;
+  onToggleExplorer: () => void;
   currentFilePath?: string | null;
   parseError?: string | null;
   theme: 'dark' | 'light';
@@ -19,6 +22,7 @@ interface ToolbarProps {
 
 export function Toolbar({
   onOpen,
+  onOpenDirectory,
   onSave,
   onRefresh,
   canRefresh,
@@ -27,6 +31,8 @@ export function Toolbar({
   rightVisible,
   onToggleLeft,
   onToggleRight,
+  explorerVisible,
+  onToggleExplorer,
   currentFilePath,
   parseError,
   theme,
@@ -39,6 +45,10 @@ export function Toolbar({
           <FolderOpen size={18} />
           <span className={styles.tooltip}>打开</span>
         </button>
+        <button className={styles.iconBtn} onClick={onOpenDirectory} title="打开目录">
+          <FolderPlus size={18} />
+          <span className={styles.tooltip}>打开目录</span>
+        </button>
         <button className={styles.iconBtn} onClick={onSave} title="保存文件 (Ctrl+S)" disabled={!canSave}>
           <Save size={18} />
           <span className={styles.tooltip}>保存</span>
@@ -48,6 +58,14 @@ export function Toolbar({
           <span className={styles.tooltip}>刷新</span>
         </button>
         <div className={styles.divider} />
+        <button
+          className={`${styles.iconBtn} ${explorerVisible ? styles.active : ''}`}
+          onClick={onToggleExplorer}
+          title={explorerVisible ? '隐藏文件列表' : '显示文件列表'}
+        >
+          <FolderTree size={18} />
+          <span className={styles.tooltip}>{explorerVisible ? '隐藏文件列表' : '显示文件列表'}</span>
+        </button>
         <button
           className={`${styles.iconBtn} ${leftVisible ? styles.active : ''}`}
           onClick={onToggleLeft}

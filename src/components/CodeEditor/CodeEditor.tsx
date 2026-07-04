@@ -13,6 +13,7 @@ interface CodeEditorProps {
   positionMap: Map<string, PositionInfo>;
   jumpTarget: string | null;
   onCursorMove: (lineNumber: number) => void;
+  resetCursorKey: number;
 }
 
 export function CodeEditor({
@@ -23,6 +24,7 @@ export function CodeEditor({
   positionMap,
   jumpTarget,
   onCursorMove,
+  resetCursorKey,
 }: CodeEditorProps) {
   const editorRef = useRef<EditorInstance | null>(null);
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
@@ -108,6 +110,15 @@ export function CodeEditor({
       column: 1,
     });
   }, [jumpTarget, positionMap]);
+
+  // 打开新文件时重置光标到第一行
+  useEffect(() => {
+    if (!editorRef.current) return;
+    editorRef.current.setPosition({ lineNumber: 1, column: 1 });
+    editorRef.current.revealLineInCenter(1);
+    updateActiveLine(1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetCursorKey]);
 
   return (
     <div className={styles.container}>

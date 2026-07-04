@@ -7,3 +7,41 @@
   background: var(--bg-primary);
   color: var(--text-primary);
 }
+
+.main {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  overflow: hidden;
+}
+
+.explorerPanel {
+  flex-shrink: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+.explorerDivider {
+  width: 6px;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: transparent;
+  position: relative;
+  z-index: 10;
+}
+
+.explorerDivider:hover .explorerDividerLine,
+.explorerDragging .explorerDividerLine {
+  background: var(--accent);
+}
+
+.explorerDividerLine {
+  width: 2px;
+  height: 100%;
+  background: var(--border);
+  border-radius: 1px;
+  transition: background 0.15s;
+}

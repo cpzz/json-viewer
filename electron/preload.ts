@@ -10,4 +10,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onFileDrop: (callback: (filePath: string) => void) => {
     ipcRenderer.on('file:drop', (_event, filePath) => callback(filePath));
   },
+  openFiles: () => ipcRenderer.invoke('dialog:openFiles'),
+  openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
+  readDirectory: (dirPath: string) => ipcRenderer.invoke('fs:readDirectory', dirPath),
+  statBatch: (paths: string[]) => ipcRenderer.invoke('fs:statBatch', paths),
 });

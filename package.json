@@ -5,8 +5,9 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "tsc && vite",
-    "win": "tsc && vite --config vite.config.ts",
-    "server": "vite preview"
+    "build": "tsc && vite build",
+    "server": "vite preview",
+    "win": "electron ."
   },
   "dependencies": {
     "react": "^18.2.0",

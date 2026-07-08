@@ -1,0 +1,206 @@
+.container {
+  height: 100%;
+  overflow: auto;
+  padding: 0;
+  background: var(--bg-primary, #ffffff);
+}
+
+.container :global(form) {
+  padding: 0;
+}
+
+/* 表单字段样式 */
+.container :global(.field) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.container :global(.field > label) {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.container :global(.field > label .required) {
+  color: #ff4d4f;
+  font-weight: bold;
+}
+
+.container :global(.field .field-description) {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+/* 输入框样式 */
+.container :global(input[type="text"]),
+.container :global(input[type="number"]),
+.container :global(input[type="email"]),
+.container :global(input[type="url"]),
+.container :global(input[type="password"]),
+.container :global(input[type="date"]),
+.container :global(input[type="datetime-local"]) {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.container :global(input:focus) {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+}
+
+.container :global(input:disabled) {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 文本域样式 */
+.container :global(textarea) {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  min-height: 80px;
+  resize: vertical;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.container :global(textarea:focus) {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+}
+
+/* 复选框样式 */
+.container :global(.checkbox) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.container :global(input[type="checkbox"]) {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+/* 下拉选择样式 */
+.container :global(select) {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.container :global(select:focus) {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+}
+
+/* 数组样式 */
+.container :global(.array) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+}
+
+.container :global(.array-item) {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+}
+
+.container :global(.array-item-toolbox) {
+  display: flex;
+  gap: 4px;
+}
+
+.container :global(.array-item-toolbox button) {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.container :global(.array-item-toolbox button:hover) {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+
+.container :global(.array-item-toolbox button.btn-danger:hover) {
+  background: #ff4d4f;
+  border-color: #ff4d4f;
+  color: white;
+}
+
+.container :global(.array-item-add) {
+  padding: 8px 16px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.container :global(.array-item-add:hover) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 错误提示样式 */
+.container :global(.field-error) {
+  font-size: 12px;
+  color: #ff4d4f;
+  margin-top: 4px;
+  padding: 4px 8px;
+  background: rgba(255, 77, 79, 0.1);
+  border-radius: 4px;
+}
+
+.container :global(.error-detail) {
+  font-size: 12px;
+  color: #ff4d4f;
+  margin-top: 4px;
+}
+
+/* 隐藏默认的提交按钮 */
+.container :global(.form-submit-button) {
+  display: none;
+}

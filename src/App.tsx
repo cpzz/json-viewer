@@ -4,9 +4,13 @@ import { SplitPane } from './components/SplitPane/SplitPane';
 import { TreeEditor } from './components/TreeEditor/TreeEditor';
 import { CodeEditor } from './components/CodeEditor/CodeEditor';
 import { FileExplorer, FileItem } from './components/FileExplorer/FileExplorer';
+import { SchemaForm, FormTheme } from './components/SchemaForm/SchemaForm';
+import { SchemaPanel } from './components/SchemaPanel/SchemaPanel';
 import { useJsonSync } from './hooks/useJsonSync';
 import { useFileOperations } from './hooks/useFileOperations';
+import { useSchemaProcessor } from './hooks/useSchemaProcessor';
 import { findNodeIdByLine } from './utils/positionMap';
+import { formToJsonTree } from './utils/schemaTransform';
 import { StatusBar } from './components/StatusBar/StatusBar';
 import styles from './App.module.css';
 
@@ -20,10 +24,11 @@ interface EditorPosState {
 function App() {
   const { jsonText, treeData, parseError, positionMap, updateFromTree, updateFromCode, isUpdatingFromTreeRef } = useJsonSync();
   const { saveFile, saveAs, reloadFile, registerBrowserFile, readBrowserFile, currentFilePath, setCurrentFilePath } = useFileOperations();
+  const { schema, formData, validationErrors, loadSchema, updateFormData, generateJson } = useSchemaProcessor();
   const [leftVisible, setLeftVisible] = useState(true);
   const [rightVisible, setRightVisible] = useState(true);
   const [explorerVisible, setExplorerVisible] = useState(true);
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [theme, setTheme] = useState<Theme>('light');
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [jumpTarget, setJumpTarget] = useState<string | null>(null);
   const [scrollTarget, setScrollTarget] = useState<{ id: string; nonce: number } | null>(null);
@@ -38,6 +43,10 @@ function App() {
   const [treeRestoreTarget, setTreeRestoreTarget] = useState<string | null>(null);
   const [cursorLine, setCursorLine] = useState(1);
   const [cursorColumn, setCursorColumn] = useState(1);
+  const [schemaPanelVisible, setSchemaPanelVisible] = useState(true);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [leftTab, setLeftTab] = useState<'tree' | 'form' | 'schema'>('tree');
+  const [formTheme, setFormTheme] = useState<FormTheme>('antd');
   const editorStateRef = useRef<Map<string, EditorPosState>>(new Map());
   const lastCursorLineRef = useRef(1);
   const currentFilePathRef = useRef<string | null>(null);
@@ -473,6 +482,53 @@ function App() {
     await loadBrowserFiles(jsonFiles);
   }, [isElectron, loadBrowserFiles, pickFilesFromInput]);
 
+  // 导入 JSON Schema
+  const handleImportSchema = useCallback(async () => {
+    try {
+      setImportError(null);
+
+      if (isElectron) {
+        const result = await window.electronAPI!.openFile();
+        if (!result.filePath) return;
+
+        const content = await window.electronAPI!.readFile(result.filePath);
+        const loadResult = await loadSchema(content);
+
+        if (!loadResult.success) {
+          setImportError(loadResult.error || 'Schema 加载失败');
+        }
+      } else {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+
+        input.onchange = async (e) => {
+          const file = (e.target as HTMLInputElement).files?.[0];
+          if (!file) return;
+
+          const text = await file.text();
+          const loadResult = await loadSchema(text);
+
+          if (!loadResult.success) {
+            setImportError(loadResult.error || 'Schema 加载失败');
+          }
+        };
+
+        input.click();
+      }
+    } catch (error) {
+      setImportError(`导入失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }, [isElectron, loadSchema]);
+
+  // 当 formData 变化时，同步到 treeData
+  useEffect(() => {
+    if (schema && formData) {
+      const newTreeData = formToJsonTree(formData, schema);
+      updateFromTree(newTreeData);
+    }
+  }, [formData, schema, updateFromTree]);
+
   // 文件列表分隔条拖拽
   const handleExplorerResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -530,7 +586,16 @@ function App() {
         theme={theme}
         onToggleTheme={toggleTheme}
         onOpenDirectory={handleOpenDirectory}
+        onImportSchema={handleImportSchema}
+        hasSchema={!!schema}
       />
+
+      {importError && (
+        <div className={styles.errorBanner}>
+          <span>{importError}</span>
+          <button onClick={() => setImportError(null)}>×</button>
+        </div>
+      )}
       <div className={styles.main}>
         {explorerVisible && (
           <div className={styles.explorerPanel} style={{ width: explorerWidth }}>
@@ -550,15 +615,138 @@ function App() {
           </div>
         )}
         <SplitPane leftVisible={leftVisible} rightVisible={rightVisible}>
-          <TreeEditor
-            data={treeData}
-            onChange={updateFromTree}
-            activeNodeId={activeNodeId}
-            onSelectNode={handleSelectNode}
-            scrollTarget={scrollTarget}
-            restoreSignal={treeRestoreSig}
-            restoreTarget={treeRestoreTarget}
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
+              <button
+                onClick={() => setLeftTab('tree')}
+                style={{
+                  padding: '8px 16px',
+                  border: 'none',
+                  background: leftTab === 'tree' ? 'var(--bg-primary)' : 'transparent',
+                  color: leftTab === 'tree' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  fontWeight: leftTab === 'tree' ? 600 : 400,
+                  borderBottom: leftTab === 'tree' ? '2px solid var(--accent)' : '2px solid transparent',
+                }}
+              >
+                树状编辑器
+              </button>
+              {schema && (
+                <>
+                  <button
+                    onClick={() => setLeftTab('form')}
+                    style={{
+                      padding: '8px 16px',
+                      border: 'none',
+                      background: leftTab === 'form' ? 'var(--bg-primary)' : 'transparent',
+                      color: leftTab === 'form' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      fontWeight: leftTab === 'form' ? 600 : 400,
+                      borderBottom: leftTab === 'form' ? '2px solid var(--accent)' : '2px solid transparent',
+                    }}
+                  >
+                    表单编辑器
+                  </button>
+                  <button
+                    onClick={() => setLeftTab('schema')}
+                    style={{
+                      padding: '8px 16px',
+                      border: 'none',
+                      background: leftTab === 'schema' ? 'var(--bg-primary)' : 'transparent',
+                      color: leftTab === 'schema' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      fontWeight: leftTab === 'schema' ? 600 : 400,
+                      borderBottom: leftTab === 'schema' ? '2px solid var(--accent)' : '2px solid transparent',
+                    }}
+                  >
+                    JSON Schema
+                  </button>
+                </>
+              )}
+            </div>
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              {leftTab === 'tree' ? (
+                <TreeEditor
+                  data={treeData}
+                  onChange={updateFromTree}
+                  activeNodeId={activeNodeId}
+                  onSelectNode={handleSelectNode}
+                  scrollTarget={scrollTarget}
+                  restoreSignal={treeRestoreSig}
+                  restoreTarget={treeRestoreTarget}
+                />
+              ) : leftTab === 'form' ? (
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  {schema ? (
+                    <>
+                      <div style={{
+                        padding: '8px 16px',
+                        borderBottom: '1px solid var(--border)',
+                        background: 'var(--bg-secondary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                          表单主题：
+                        </label>
+                        <select
+                          value={formTheme}
+                          onChange={(e) => setFormTheme(e.target.value as FormTheme)}
+                          style={{
+                            padding: '4px 8px',
+                            border: '1px solid var(--border)',
+                            borderRadius: '4px',
+                            background: 'var(--bg-primary)',
+                            color: 'var(--text-primary)',
+                            fontSize: '13px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="antd">Ant Design</option>
+                          <option value="mui">Material UI</option>
+                        </select>
+                      </div>
+                      <div style={{ flex: 1, overflow: 'auto' }}>
+                        <SchemaForm
+                          schema={schema}
+                          formData={formData}
+                          onChange={updateFormData}
+                          theme={formTheme}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ padding: '20px', color: 'var(--text-secondary)' }}>
+                      请先导入 JSON Schema 文件
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ height: '100%', overflow: 'hidden' }}>
+                  {schema ? (
+                    <CodeEditor
+                      value={JSON.stringify(schema, null, 2)}
+                      onChange={() => {}}
+                      error={null}
+                      theme={theme}
+                      positionMap={[]}
+                      jumpTarget={null}
+                      onCursorMove={() => {}}
+                      resetCursorKey={0}
+                      resetCursorLine={1}
+                      isUpdatingFromTreeRef={{ current: false }}
+                      readOnly={true}
+                    />
+                  ) : (
+                    <div style={{ padding: '20px', color: 'var(--text-secondary)' }}>
+                      请先导入 JSON Schema 文件
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
           <CodeEditor
             value={jsonText}
             onChange={updateFromCode}

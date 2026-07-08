@@ -10,12 +10,13 @@ interface CodeEditorProps {
   onChange: (value: string) => void;
   error?: string | null;
   theme: 'dark' | 'light';
-  positionMap: Map<string, PositionInfo>;
+  positionMap: PositionInfo[] | Map<string, PositionInfo>;
   jumpTarget: string | null;
   onCursorMove: (lineNumber: number, column: number) => void;
   resetCursorKey: number;
   resetCursorLine: number;
   isUpdatingFromTreeRef: React.MutableRefObject<boolean>;
+  readOnly?: boolean;
 }
 
 export function CodeEditor({
@@ -29,6 +30,7 @@ export function CodeEditor({
   resetCursorKey,
   resetCursorLine,
   isUpdatingFromTreeRef,
+  readOnly = false,
 }: CodeEditorProps) {
   const editorRef = useRef<EditorInstance | null>(null);
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
@@ -98,7 +100,10 @@ export function CodeEditor({
 
   useEffect(() => {
     if (!editorRef.current || !jumpTarget) return;
+    if (Array.isArray(positionMap)) return;
+    
     const info = positionMap.get(jumpTarget);
+    
     if (!info) return;
 
     editorRef.current.revealLineInCenter(info.startLine);
@@ -140,6 +145,8 @@ export function CodeEditor({
           bracketPairColorization: { enabled: true },
           renderWhitespace: 'selection',
           tabSize: 2,
+          readOnly: readOnly,
+          domReadOnly: readOnly,
         }}
       />
       {error && (

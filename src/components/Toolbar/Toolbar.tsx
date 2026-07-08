@@ -1,4 +1,4 @@
-import { FilePlus, FolderOpen, Save, RefreshCw, PanelLeft, PanelRight, Sun, Moon, FolderTree, FolderPlus } from 'lucide-react';
+import { FilePlus, FolderOpen, Save, RefreshCw, PanelLeft, PanelRight, Sun, Moon, FolderTree, FolderPlus, FileJson } from 'lucide-react';
 import styles from './Toolbar.module.css';
 
 interface ToolbarProps {
@@ -19,6 +19,8 @@ interface ToolbarProps {
   parseError?: string | null;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
+  onImportSchema?: () => void;
+  hasSchema?: boolean;
 }
 
 export function Toolbar({
@@ -39,6 +41,8 @@ export function Toolbar({
   parseError,
   theme,
   onToggleTheme,
+  onImportSchema,
+  hasSchema,
 }: ToolbarProps) {
   return (
     <div className={styles.toolbar}>
@@ -55,6 +59,12 @@ export function Toolbar({
           <FolderPlus size={18} />
           <span className={styles.tooltip}>打开目录</span>
         </button>
+        {onImportSchema && (
+          <button className={styles.iconBtn} onClick={onImportSchema} title="导入 JSON Schema">
+            <FileJson size={18} />
+            <span className={styles.tooltip}>导入 Schema</span>
+          </button>
+        )}
         <button className={styles.iconBtn} onClick={onSave} title="保存文件 (Ctrl+S)" disabled={!canSave}>
           <Save size={18} />
           <span className={styles.tooltip}>保存</span>

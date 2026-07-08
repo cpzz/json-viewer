@@ -50,8 +50,12 @@ function FileTreeItem({ item, onOpenFile, onRemoveItem }: {
       if (!expanded && children === null) {
         setLoading(true);
         try {
-          const entries = await window.electronAPI.readDirectory(item.path);
-          setChildren(entries);
+          if (window.electronAPI) {
+            const entries = await window.electronAPI.readDirectory(item.path);
+            setChildren(entries);
+          } else {
+            setChildren([]);
+          }
         } catch {
           setChildren([]);
         }

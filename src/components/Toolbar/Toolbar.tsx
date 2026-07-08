@@ -1,7 +1,8 @@
-import { FolderOpen, Save, RefreshCw, PanelLeft, PanelRight, Sun, Moon, FolderTree, FolderPlus } from 'lucide-react';
+import { FilePlus, FolderOpen, Save, RefreshCw, PanelLeft, PanelRight, Sun, Moon, FolderTree, FolderPlus } from 'lucide-react';
 import styles from './Toolbar.module.css';
 
 interface ToolbarProps {
+  onNewFile: () => void;
   onOpen: () => void;
   onOpenDirectory: () => void;
   onSave: () => void;
@@ -21,6 +22,7 @@ interface ToolbarProps {
 }
 
 export function Toolbar({
+  onNewFile,
   onOpen,
   onOpenDirectory,
   onSave,
@@ -41,6 +43,10 @@ export function Toolbar({
   return (
     <div className={styles.toolbar}>
       <div className={styles.leftGroup}>
+        <button className={styles.iconBtn} onClick={onNewFile} title="新建空 JSON 文件">
+          <FilePlus size={18} />
+          <span className={styles.tooltip}>新建</span>
+        </button>
         <button className={styles.iconBtn} onClick={onOpen} title="打开文件 (Ctrl+O)">
           <FolderOpen size={18} />
           <span className={styles.tooltip}>打开</span>

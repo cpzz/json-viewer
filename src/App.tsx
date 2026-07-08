@@ -19,7 +19,7 @@ interface EditorPosState {
 
 function App() {
   const { jsonText, treeData, parseError, positionMap, updateFromTree, updateFromCode, isUpdatingFromTreeRef } = useJsonSync();
-  const { saveFile, saveAs, reloadFile, currentFilePath, setCurrentFilePath } = useFileOperations();
+  const { saveFile, saveAs, reloadFile, registerBrowserFile, readBrowserFile, currentFilePath, setCurrentFilePath } = useFileOperations();
   const [leftVisible, setLeftVisible] = useState(true);
   const [rightVisible, setRightVisible] = useState(true);
   const [explorerVisible, setExplorerVisible] = useState(true);
@@ -41,6 +41,8 @@ function App() {
   const editorStateRef = useRef<Map<string, EditorPosState>>(new Map());
   const lastCursorLineRef = useRef(1);
   const currentFilePathRef = useRef<string | null>(null);
+  const browserPathCounterRef = useRef(0);
+  const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
   const isDirty = jsonText !== savedContentRef.current;
   const canSave = isDirty;
   const canRefresh = currentFilePath !== null && isDirty;
@@ -98,57 +100,204 @@ function App() {
     setTreeRestoreSig(s => s + 1);
   }, [activeNodeId, updateFromCode, setCurrentFilePath]);
 
-  const handleOpen = async () => {
-    const result = await window.electronAPI.openFiles();
-    if (result.filePaths.length > 0) {
-      // 将选中的文件加入文件列表
-      setFileItems(prev => {
-        const existing = new Set(prev.map(i => i.path));
-        const toAdd = result.filePaths
-          .filter(p => !existing.has(p))
-          .map(p => ({
-            path: p,
-            name: p.split('\\').pop()?.split('/').pop() || p,
-            type: 'file' as const,
-          }));
-        return [...prev, ...toAdd];
+  const createBrowserPath = useCallback((name: string) => {
+    browserPathCounterRef.current += 1;
+    return `web-${Date.now()}-${browserPathCounterRef.current}/${name}`;
+  }, []);
+
+  const showMessage = useCallback(async (title: string, message: string, isError = false) => {
+    if (window.electronAPI) {
+      await window.electronAPI.showMessageBox({
+        type: isError ? 'error' : 'info',
+        title,
+        message,
+        buttons: ['确定'],
+        cancelId: 0,
       });
-      // 加载第一个文件
-      const firstPath = result.filePaths[0];
-      const content = await window.electronAPI.readFile(firstPath);
-      fileContentReady(firstPath, content);
+      return;
     }
+    window.alert(`${title}\n${message}`);
+  }, []);
+
+  const pickFilesFromInput = useCallback((multiple: boolean, directory = false) => {
+    return new Promise<File[]>((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.multiple = multiple;
+      if (directory) {
+        (input as HTMLInputElement & { webkitdirectory?: boolean }).webkitdirectory = true;
+      }
+      input.onchange = () => resolve(Array.from(input.files || []));
+      input.click();
+    });
+  }, []);
+
+  const loadBrowserFiles = useCallback(async (files: Array<{ file: File; name?: string; handle?: FileSystemFileHandle }>) => {
+    if (files.length === 0) return;
+
+    const nextItems: FileItem[] = [];
+    let firstLoaded: { path: string; content: string } | null = null;
+
+    for (const entry of files) {
+      const content = await entry.file.text();
+      const displayName = entry.name || entry.file.name;
+      const filePath = createBrowserPath(displayName);
+      registerBrowserFile(filePath, content, entry.handle);
+      nextItems.push({ path: filePath, name: displayName, type: 'file' });
+      if (!firstLoaded) {
+        firstLoaded = { path: filePath, content };
+      }
+    }
+
+    setFileItems(prev => {
+      const existing = new Set(prev.map(item => item.path));
+      const toAdd = nextItems.filter(item => !existing.has(item.path));
+      return [...prev, ...toAdd];
+    });
+
+    if (firstLoaded) {
+      fileContentReady(firstLoaded.path, firstLoaded.content);
+    }
+  }, [createBrowserPath, registerBrowserFile, fileContentReady]);
+
+  const handleOpen = async () => {
+    if (isElectron) {
+      const result = await window.electronAPI!.openFiles();
+      if (result.filePaths.length > 0) {
+        setFileItems(prev => {
+          const existing = new Set(prev.map(i => i.path));
+          const toAdd = result.filePaths
+            .filter(p => !existing.has(p))
+            .map(p => ({
+              path: p,
+              name: p.split('\\').pop()?.split('/').pop() || p,
+              type: 'file' as const,
+            }));
+          return [...prev, ...toAdd];
+        });
+        const firstPath = result.filePaths[0];
+        const content = await window.electronAPI!.readFile(firstPath);
+        fileContentReady(firstPath, content);
+      }
+      return;
+    }
+
+    const openPicker = (window as Window & {
+      showOpenFilePicker?: (options?: unknown) => Promise<FileSystemFileHandle[]>;
+    }).showOpenFilePicker;
+
+    if (openPicker) {
+      const handles = await openPicker({
+        multiple: true,
+        types: [{ description: 'JSON 文件', accept: { 'application/json': ['.json'] } }],
+      });
+      const files = await Promise.all(
+        handles.map(async handle => ({ file: await handle.getFile(), handle }))
+      );
+      await loadBrowserFiles(files);
+      return;
+    }
+
+    const files = await pickFilesFromInput(true, false);
+    await loadBrowserFiles(files.map(file => ({ file })));
+  };
+
+  const handleNewFile = async () => {
+    const emptyJson = '{}';
+    if (isElectron) {
+      const result = await window.electronAPI!.saveFile(emptyJson);
+      if (!result.filePath) return;
+
+      const newPath = result.filePath;
+      setFileItems(prev => {
+        if (prev.some(item => item.path === newPath)) return prev;
+        return [
+          ...prev,
+          {
+            path: newPath,
+            name: newPath.split('\\').pop()?.split('/').pop() || newPath,
+            type: 'file' as const,
+          },
+        ];
+      });
+      fileContentReady(newPath, emptyJson);
+      return;
+    }
+
+    const savePicker = (window as Window & {
+      showSaveFilePicker?: (options?: unknown) => Promise<FileSystemFileHandle>;
+    }).showSaveFilePicker;
+
+    if (savePicker) {
+      const handle = await savePicker({
+        suggestedName: 'untitled.json',
+        types: [{ description: 'JSON 文件', accept: { 'application/json': ['.json'] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(emptyJson);
+      await writable.close();
+
+      const filePath = createBrowserPath(handle.name);
+      registerBrowserFile(filePath, emptyJson, handle);
+      setFileItems(prev => {
+        if (prev.some(item => item.path === filePath)) return prev;
+        return [...prev, { path: filePath, name: handle.name, type: 'file' }];
+      });
+      fileContentReady(filePath, emptyJson);
+      return;
+    }
+
+    const filePath = createBrowserPath('untitled.json');
+    registerBrowserFile(filePath, emptyJson);
+    setFileItems(prev => [...prev, { path: filePath, name: 'untitled.json', type: 'file' }]);
+    fileContentReady(filePath, emptyJson);
   };
 
   // 拖拽打开文件/目录
   useEffect(() => {
     const handleDrop = async (e: DragEvent) => {
       e.preventDefault();
-      const paths: string[] = [];
-      if (e.dataTransfer?.files) {
-        for (let i = 0; i < e.dataTransfer.files.length; i++) {
-          const file = e.dataTransfer.files[i];
-          if ((file as any).path) {
-            paths.push((file as any).path);
+      if (isElectron) {
+        const paths: string[] = [];
+        if (e.dataTransfer?.files) {
+          for (let i = 0; i < e.dataTransfer.files.length; i++) {
+            const file = e.dataTransfer.files[i];
+            if ((file as any).path) {
+              paths.push((file as any).path);
+            }
           }
         }
+        if (paths.length > 0) {
+          const results = await window.electronAPI!.statBatch(paths);
+          setFileItems(prev => {
+            const existing = new Set(prev.map(i => i.path));
+            const toAdd = results.filter(i => !existing.has(i.path));
+            return [...prev, ...toAdd];
+          });
+          if (results.length === 1 && results[0].type === 'file') {
+            try {
+              const content = await window.electronAPI!.readFile(results[0].path);
+              fileContentReady(results[0].path, content);
+            } catch {
+              // 静默失败
+            }
+          }
+        }
+        return;
       }
-      if (paths.length > 0) {
-        const results = await window.electronAPI.statBatch(paths);
-        setFileItems(prev => {
-          const existing = new Set(prev.map(i => i.path));
-          const toAdd = results.filter(i => !existing.has(i.path));
-          return [...prev, ...toAdd];
-        });
-        // 如果是单个文件，自动打开
-        if (results.length === 1 && results[0].type === 'file') {
-          try {
-            const content = await window.electronAPI.readFile(results[0].path);
-            fileContentReady(results[0].path, content);
-          } catch {
-            // 静默失败
-          }
-        }
+
+      const droppedFiles = Array.from(e.dataTransfer?.files || []).filter(file =>
+        file.name.toLowerCase().endsWith('.json')
+      );
+
+      if (droppedFiles.length > 0) {
+        await loadBrowserFiles(
+          droppedFiles.map(file => ({
+            file,
+            name: (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name,
+          }))
+        );
       }
     };
     const handleDragOver = (e: DragEvent) => e.preventDefault();
@@ -158,17 +307,24 @@ function App() {
       window.removeEventListener('drop', handleDrop);
       window.removeEventListener('dragover', handleDragOver);
     };
-  }, [fileContentReady]);
+  }, [fileContentReady, isElectron, loadBrowserFiles]);
 
   const handleSave = async () => {
-    const result = await window.electronAPI.showMessageBox({
-      type: 'question',
-      title: '保存文件',
-      message: '是否保存当前文件？',
-      buttons: ['确定', '取消'],
-      cancelId: 1,
-    });
-    if (result.response !== 0) return;
+    let shouldSave = true;
+    if (window.electronAPI) {
+      const result = await window.electronAPI.showMessageBox({
+        type: 'question',
+        title: '保存文件',
+        message: '是否保存当前文件？',
+        buttons: ['确定', '取消'],
+        cancelId: 1,
+      });
+      shouldSave = result.response === 0;
+    } else {
+      shouldSave = window.confirm('是否保存当前文件？');
+    }
+    if (!shouldSave) return;
+
     let success = false;
     if (currentFilePath) {
       success = await saveFile(jsonText);
@@ -183,18 +339,18 @@ function App() {
 
   const handleRefresh = async () => {
     if (isDirty) {
-      const result = await window.electronAPI.showMessageBox({
-        type: 'question',
-        title: '未保存的更改',
-        message: '当前文件有未保存的更改，是否保存后再刷新？',
-        buttons: ['保存', '不保存', '取消'],
-        cancelId: 2,
-      });
-      if (result.response === 2) return;
-      if (result.response === 0) {
-        const saved = await saveFile(jsonText);
-        if (saved) savedContentRef.current = jsonText;
-        else return;
+      if (window.electronAPI) {
+        const result = await window.electronAPI.showMessageBox({
+          type: 'question',
+          title: '未保存的更改',
+          message: '当前文件有未保存的更改，刷新将丢失这些更改，是否继续？',
+          buttons: ['丢弃并刷新', '取消'],
+          cancelId: 1,
+        });
+        if (result.response !== 0) return;
+      } else {
+        const shouldDiscard = window.confirm('当前文件有未保存的更改，刷新将丢失这些更改，是否继续？');
+        if (!shouldDiscard) return;
       }
     }
     try {
@@ -204,13 +360,7 @@ function App() {
       setActiveNodeId(null);
       setJumpTarget(null);
     } catch (e) {
-      await window.electronAPI.showMessageBox({
-        type: 'error',
-        title: '刷新失败',
-        message: `无法重新读取文件：\n${(e as Error).message}`,
-        buttons: ['确定'],
-        cancelId: 0,
-      });
+      await showMessage('刷新失败', `无法重新读取文件：\n${(e as Error).message}`, true);
     }
   };
 
@@ -247,18 +397,14 @@ function App() {
   // 文件列表：从文件管理器打开文件
   const handleOpenFileFromExplorer = useCallback(async (filePath: string) => {
     try {
-      const content = await window.electronAPI.readFile(filePath);
+      const content = isElectron
+        ? await window.electronAPI!.readFile(filePath)
+        : await readBrowserFile(filePath);
       fileContentReady(filePath, content);
     } catch (e) {
-      await window.electronAPI.showMessageBox({
-        type: 'error',
-        title: '打开失败',
-        message: `无法读取文件：\n${(e as Error).message}`,
-        buttons: ['确定'],
-        cancelId: 0,
-      });
+      await showMessage('打开失败', `无法读取文件：\n${(e as Error).message}`, true);
     }
-  }, [fileContentReady]);
+  }, [fileContentReady, isElectron, readBrowserFile, showMessage]);
 
   // 文件列表：从列表移除
   const handleRemoveFileItem = useCallback((path: string) => {
@@ -276,16 +422,56 @@ function App() {
 
   // 打开目录
   const handleOpenDirectory = useCallback(async () => {
-    const result = await window.electronAPI.openDirectory();
-    if (result.filePaths.length > 0) {
-      const items = await window.electronAPI.statBatch(result.filePaths);
-      setFileItems(prev => {
-        const existing = new Set(prev.map(i => i.path));
-        const toAdd = items.filter(i => !existing.has(i.path));
-        return [...prev, ...toAdd];
-      });
+    if (isElectron) {
+      const result = await window.electronAPI!.openDirectory();
+      if (result.filePaths.length > 0) {
+        const items = await window.electronAPI!.statBatch(result.filePaths);
+        setFileItems(prev => {
+          const existing = new Set(prev.map(i => i.path));
+          const toAdd = items.filter(i => !existing.has(i.path));
+          return [...prev, ...toAdd];
+        });
+      }
+      return;
     }
-  }, []);
+
+    const openDirectoryPicker = (window as Window & {
+      showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>;
+    }).showDirectoryPicker;
+
+    if (openDirectoryPicker) {
+      const dirHandle = await openDirectoryPicker();
+      const fileEntries: Array<{ file: File; name: string; handle: FileSystemFileHandle }> = [];
+
+      const walk = async (handle: FileSystemDirectoryHandle, prefix = '') => {
+        for await (const [name, child] of (handle as any).entries() as AsyncIterable<[string, FileSystemHandle]>) {
+          if (child.kind === 'directory') {
+            await walk(child as FileSystemDirectoryHandle, `${prefix}${name}/`);
+          } else if (name.toLowerCase().endsWith('.json')) {
+            const fileHandle = child as FileSystemFileHandle;
+            fileEntries.push({
+              file: await fileHandle.getFile(),
+              name: `${prefix}${name}`,
+              handle: fileHandle,
+            });
+          }
+        }
+      };
+
+      await walk(dirHandle);
+      await loadBrowserFiles(fileEntries);
+      return;
+    }
+
+    const files = await pickFilesFromInput(true, true);
+    const jsonFiles = files
+      .filter(file => file.name.toLowerCase().endsWith('.json'))
+      .map(file => ({
+        file,
+        name: (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name,
+      }));
+    await loadBrowserFiles(jsonFiles);
+  }, [isElectron, loadBrowserFiles, pickFilesFromInput]);
 
   // 文件列表分隔条拖拽
   const handleExplorerResizeStart = useCallback((e: React.MouseEvent) => {
@@ -309,10 +495,13 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        handleNewFile();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
         e.preventDefault();
         handleOpen();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         handleSave();
       }
@@ -324,6 +513,7 @@ function App() {
   return (
     <div className={styles.app}>
       <Toolbar
+        onNewFile={handleNewFile}
         onOpen={handleOpen}
         onSave={handleSave}
         onRefresh={handleRefresh}

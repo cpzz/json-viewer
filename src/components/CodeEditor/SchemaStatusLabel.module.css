@@ -1,0 +1,74 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  min-height: 32px;
+}
+
+.schemaIcon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.message {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.sep {
+  color: var(--text-muted);
+}
+
+.statusIcon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.none .detail,
+.none .statusIcon {
+  color: var(--text-muted);
+}
+
+.valid {
+  color: var(--text-secondary);
+}
+
+.valid .statusIcon,
+.valid .detail {
+  color: #389e0d;
+}
+
+.invalid,
+.parse-error,
+.schema-error,
+.empty {
+  color: var(--text-secondary);
+}
+
+.invalid .statusIcon,
+.invalid .detail,
+.parse-error .statusIcon,
+.parse-error .detail,
+.schema-error .statusIcon,
+.schema-error .detail {
+  color: #cf1322;
+}
+
+.empty .statusIcon,
+.empty .detail {
+  color: #d48806;
+}

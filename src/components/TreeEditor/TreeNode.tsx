@@ -1,17 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 import { NodeRendererProps } from 'react-arborist';
 import { JsonTreeNode } from '../../types';
+import { NodeActionMenu, NodeMenuItem } from './NodeActionMenu';
 import styles from './TreeEditor.module.css';
 
 interface TreeNodeProps extends NodeRendererProps<JsonTreeNode> {
   activeNodeId: string | null;
+  menuItems: NodeMenuItem[];
   onUpdate: (id: string, updates: Partial<JsonTreeNode>) => void;
-  onDelete: (id: string) => void;
-  onRequestAddChild: (parentId: string) => void;
   onSelectNode: (id: string) => void;
 }
 
-export function TreeNode({ node, style, dragHandle, activeNodeId, onUpdate, onDelete, onRequestAddChild, onSelectNode }: TreeNodeProps) {
+export function TreeNode({ node, style, dragHandle, activeNodeId, menuItems, onUpdate, onSelectNode }: TreeNodeProps) {
   const data = node.data;
   const indent = node.level * 20 + 8;
   const [editing, setEditing] = useState<'key' | 'value' | null>(null);
@@ -157,24 +157,7 @@ export function TreeNode({ node, style, dragHandle, activeNodeId, onUpdate, onDe
 
       <div className={styles.actions}>
         <span className={styles.typeBadge}>{data.type}</span>
-        {isExpandable && (
-          <button
-            className={styles.actionBtn}
-            onClick={(e) => { e.stopPropagation(); onRequestAddChild(data.id); }}
-            title="添加子节点"
-          >
-            +
-          </button>
-        )}
-        {!isRoot && (
-          <button
-            className={styles.actionBtn}
-            onClick={(e) => { e.stopPropagation(); onDelete(data.id); }}
-            title="删除节点"
-          >
-            ×
-          </button>
-        )}
+        <NodeActionMenu items={menuItems} />
       </div>
     </div>
   );

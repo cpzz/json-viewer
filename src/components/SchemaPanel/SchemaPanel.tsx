@@ -1,124 +1,84 @@
 import { useMemo } from 'react';
 import { JsonSchema } from '../../hooks/useSchemaProcessor';
-import { X } from 'lucide-react';
 import styles from './SchemaPanel.module.css';
 
 interface SchemaPanelProps {
   schema: JsonSchema;
-  onClose: () => void;
+  onClose?: () => void;
+}
+
+interface SchemaField {
+  name: string;
+  type: string;
+  required: boolean;
+  description?: string;
+  children?: SchemaField[];
 }
 
 export function SchemaPanel({ schema, onClose }: SchemaPanelProps) {
-  const schemaInfo = useMemo(() => {
-    return extractSchemaInfo(schema);
-  }, [schema]);
+  const fields = useMemo(() => parseSchemaFields(schema), [schema]);
 
   return (
-    <div className={styles.container}>
+    <div className={styles.panel}>
       <div className={styles.header}>
-        <h3 className={styles.title}>Schema 结构</h3>
-        <button className={styles.closeBtn} onClick={onClose} title="关闭">
-          <X size={16} />
-        </button>
+        <h3>{schema.title || 'JSON Schema'}</h3>
+        {onClose && (
+          <button className={styles.closeBtn} onClick={onClose} title="关闭">
+            ×
+          </button>
+        )}
       </div>
-
-      <div className={styles.content}>
-        <div className={styles.section}>
-          <h4 className={styles.sectionTitle}>基本信息</h4>
-          <div className={styles.infoRow}>
-            <span className={styles.label}>标题:</span>
-            <span className={styles.value}>{schema.title || '(未设置)'}</span>
-          </div>
-          <div className={styles.infoRow}>
-            <span className={styles.label}>类型:</span>
-            <span className={styles.value}>{schema.type || 'object'}</span>
-          </div>
-          <div className={styles.infoRow}>
-            <span className={styles.label}>描述:</span>
-            <span className={styles.value}>{schema.description || '(无)'}</span>
-          </div>
-        </div>
-
-        <div className={styles.section}>
-          <h4 className={styles.sectionTitle}>字段结构</h4>
-          <div className={styles.tree}>
-            {schemaInfo.map((field) => (
-              <FieldNode key={field.path} field={field} level={0} />
-            ))}
-          </div>
-        </div>
-
-        {schema.required && schema.required.length > 0 && (
-          <div className={styles.section}>
-            <h4 className={styles.sectionTitle}>必填字段</h4>
-            <div className={styles.requiredList}>
-              {schema.required.map((field) => (
-                <span key={field} className={styles.requiredTag}>
-                  {field}
-                </span>
-              ))}
-            </div>
-          </div>
+      {schema.description && (
+        <p className={styles.description}>{schema.description}</p>
+      )}
+      <div className={styles.fieldList}>
+        {fields.length > 0 ? (
+          fields.map(field => (
+            <SchemaFieldItem key={field.name} field={field} depth={0} />
+          ))
+        ) : (
+          <p className={styles.empty}>无字段定义</p>
         )}
       </div>
     </div>
   );
 }
 
-interface FieldInfo {
-  name: string;
-  path: string;
-  type: string;
-  required: boolean;
-  description?: string;
-  children?: FieldInfo[];
-}
-
-function extractSchemaInfo(schema: JsonSchema): FieldInfo[] {
-  const fields: FieldInfo[] = [];
-  const requiredSet = new Set(schema.required || []);
-
-  if (schema.properties) {
-    for (const [key, prop] of Object.entries(schema.properties)) {
-      fields.push({
-        name: key,
-        path: key,
-        type: prop.type || 'any',
-        required: requiredSet.has(key),
-        description: prop.description,
-        children: prop.properties ? extractSchemaInfo(prop) : undefined,
-      });
-    }
-  }
-
-  return fields;
-}
-
-interface FieldNodeProps {
-  field: FieldInfo;
-  level: number;
-}
-
-function FieldNode({ field, level }: FieldNodeProps) {
+function SchemaFieldItem({ field, depth }: { field: SchemaField; depth: number }) {
   return (
-    <div className={styles.fieldNode} style={{ paddingLeft: level * 16 }}>
+    <div className={styles.fieldItem} style={{ paddingLeft: depth * 16 }}>
       <div className={styles.fieldHeader}>
-        <span className={styles.fieldName}>
-          {field.name}
-          {field.required && <span className={styles.requiredMark}>*</span>}
-        </span>
+        <span className={styles.fieldName}>{field.name}</span>
         <span className={styles.fieldType}>{field.type}</span>
+        {field.required && <span className={styles.required}>必填</span>}
       </div>
       {field.description && (
-        <div className={styles.fieldDescription}>{field.description}</div>
+        <p className={styles.fieldDesc}>{field.description}</p>
       )}
-      {field.children && field.children.length > 0 && (
-        <div className={styles.fieldChildren}>
-          {field.children.map((child) => (
-            <FieldNode key={child.path} field={child} level={level + 1} />
-          ))}
-        </div>
-      )}
+      {field.children?.map(child => (
+        <SchemaFieldItem key={child.name} field={child} depth={depth + 1} />
+      ))}
     </div>
   );
+}
+
+function parseSchemaFields(schema: JsonSchema, required: string[] = []): SchemaField[] {
+  if (!schema.properties) return [];
+
+  return Object.entries(schema.properties).map(([name, prop]) => {
+    const field: SchemaField = {
+      name,
+      type: prop.type || 'any',
+      required: required.includes(name),
+      description: prop.description,
+    };
+
+    if (prop.type === 'object' && prop.properties) {
+      field.children = parseSchemaFields(prop, prop.required || []);
+    } else if (prop.type === 'array' && prop.items?.type === 'object' && prop.items.properties) {
+      field.children = parseSchemaFields(prop.items, prop.items.required || []);
+    }
+
+    return field;
+  });
 }

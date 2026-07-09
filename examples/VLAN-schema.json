@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sonic-switch/vlan-fdb/VLAN.json",
+  "title": "VLAN",
+  "type": "object",
+  "description": "This table is where VLANs are defined. VLAN name is used as object key, and member list as well as an integer id are defined as attributes.",
+  "properties": {
+    "VLAN": {
+      "type": "object",
+      "patternProperties": {
+        "^Vlan\\d+$": {
+          "type": "object",
+          "required": [
+            "vlanid"
+          ],
+          "properties": {
+            "dhcp_servers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "members": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "vlanid": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4094
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

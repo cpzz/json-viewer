@@ -42,7 +42,6 @@ export function Toolbar({
   theme,
   onToggleTheme,
   onImportSchema,
-  hasSchema,
 }: ToolbarProps) {
   return (
     <div className={styles.toolbar}>

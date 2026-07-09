@@ -26,7 +26,6 @@ export interface ValidationError {
 
 export function useSchemaProcessor() {
   const [schema, setSchema] = useState<JsonSchema | null>(null);
-  const [formData, setFormData] = useState<Record<string, any>>({});
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
 
   const ajv = useMemo(() => new Ajv({ allErrors: true }), []);
@@ -36,10 +35,6 @@ export function useSchemaProcessor() {
       const parsed = JSON.parse(schemaText) as JsonSchema;
       setSchema(parsed);
       setValidationErrors([]);
-
-      const initialData = generateDefaultData(parsed);
-      setFormData(initialData);
-
       return { success: true, schema: parsed };
     } catch (e) {
       setValidationErrors([{
@@ -64,43 +59,94 @@ export function useSchemaProcessor() {
     }
   }, [ajv]);
 
-  const updateFormData = useCallback((data: Record<string, any>) => {
-    setFormData(data);
-  }, []);
+  const validateFn = useMemo<ValidateFunction | null>(() => {
+    if (!schema) return null;
+    try {
+      return ajv.compile(schema);
+    } catch {
+      return null;
+    }
+  }, [schema, ajv]);
 
-  const generateJson = useCallback(() => {
-    return JSON.stringify(formData, null, 2);
-  }, [formData]);
+  const validateJsonData = useCallback((jsonText: string, parseError: string | null): {
+    bound: boolean;
+    status: 'none' | 'empty' | 'parse-error' | 'valid' | 'invalid' | 'schema-error';
+    message: string;
+    detail?: string;
+  } => {
+    if (!schema) {
+      return { bound: false, status: 'none', message: '未绑定 JSON Schema' };
+    }
+
+    if (!validateFn) {
+      return {
+        bound: true,
+        status: 'schema-error',
+        message: '已绑定 JSON Schema',
+        detail: 'Schema 本身无效，无法校验',
+      };
+    }
+
+    if (parseError) {
+      return {
+        bound: true,
+        status: 'parse-error',
+        message: '已绑定 JSON Schema',
+        detail: 'JSON 语法错误',
+      };
+    }
+
+    if (!jsonText.trim()) {
+      return {
+        bound: true,
+        status: 'empty',
+        message: '已绑定 JSON Schema',
+        detail: '内容为空',
+      };
+    }
+
+    try {
+      const data = JSON.parse(jsonText);
+      const valid = validateFn(data);
+      if (valid) {
+        return {
+          bound: true,
+          status: 'valid',
+          message: '已绑定 JSON Schema',
+          detail: '符合规范',
+        };
+      }
+
+      const firstError = validateFn.errors?.[0];
+      const errorPath = firstError && 'instancePath' in firstError
+        ? String((firstError as { instancePath: string }).instancePath)
+        : '/';
+      const detail = firstError
+        ? `${errorPath || '/'} ${firstError.message ?? '不符合规范'}`
+        : '不符合规范';
+
+      return {
+        bound: true,
+        status: 'invalid',
+        message: '已绑定 JSON Schema',
+        detail,
+      };
+    } catch (e) {
+      return {
+        bound: true,
+        status: 'parse-error',
+        message: '已绑定 JSON Schema',
+        detail: (e as Error).message,
+      };
+    }
+  }, [schema, validateFn]);
 
   return {
     schema,
-    formData,
     validationErrors,
     loadSchema,
     validateSchema,
-    updateFormData,
-    generateJson,
+    validateJsonData,
     setSchema,
-    setFormData,
   };
-}
-
-function generateDefaultData(schema: JsonSchema): Record<string, any> {
-  const data: Record<string, any> = {};
-
-  if (schema.type === 'object' && schema.properties) {
-    for (const [key, prop] of Object.entries(schema.properties)) {
-      if (prop.default !== undefined) {
-        data[key] = prop.default;
-      } else if (prop.type === 'object') {
-        data[key] = generateDefaultData(prop);
-      } else if (prop.type === 'array') {
-        data[key] = [];
-      } else if (prop.enum && prop.enum.length > 0) {
-        data[key] = prop.enum[0];
-      }
-    }
-  }
-
-  return data;
 }

@@ -1,9 +1,23 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Tree, NodeRendererProps, NodeApi, TreeApi } from 'react-arborist';
 import { JsonTreeNode, JsonNodeType } from '../../types';
-import { updateNode, removeNode, addChild, findParent } from '../../utils/treeUtils';
+import { JsonSchema } from '../../hooks/useSchemaProcessor';
+import { updateNode, removeNode, addChild, findParent, findNode } from '../../utils/treeUtils';
+import {
+  getArrayAddOptions,
+  getPatternAddOptions,
+  createTreeNodeFromSchema,
+  createArrayItemNode,
+  populateTreeFromSchema,
+  mergeSchemaIntoTree,
+  isTreeEmpty,
+  hasMissingSchemaFields,
+  treeStructureChanged,
+} from '../../utils/schemaUtils';
 import { TreeNode } from './TreeNode';
 import { AddNodeDialog } from './AddNodeDialog';
+import { AddPatternEntryDialog } from './AddPatternEntryDialog';
+import { NodeMenuItem } from './NodeActionMenu';
 import styles from './TreeEditor.module.css';
 
 interface TreeEditorProps {
@@ -14,6 +28,7 @@ interface TreeEditorProps {
   scrollTarget: { id: string; nonce: number } | null;
   restoreSignal: number;
   restoreTarget: string | null;
+  schema?: JsonSchema | null;
 }
 
 let newIdCounter = 0;
@@ -21,11 +36,25 @@ function genId(): string {
   return `new_${Date.now()}_${++newIdCounter}`;
 }
 
-export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollTarget, restoreSignal, restoreTarget }: TreeEditorProps) {
+export function TreeEditor({
+  data,
+  onChange,
+  activeNodeId,
+  onSelectNode,
+  scrollTarget,
+  restoreSignal,
+  restoreTarget,
+  schema,
+}: TreeEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const treeRef = useRef<TreeApi<JsonTreeNode> | null>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [pendingAddParentId, setPendingAddParentId] = useState<string | null>(null);
+  const [pendingPatternAdd, setPendingPatternAdd] = useState<{
+    parentId: string;
+    pattern: string;
+    valueSchema: JsonSchema;
+  } | null>(null);
   const pendingScrollRef = useRef<string | null>(null);
   const ignoreFocusRef = useRef(false);
 
@@ -62,8 +91,6 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
     }
   }, [scrollTarget]);
 
-  // 两阶段聚焦：收到 restoreSignal 信号后，等待 data 就绪再聚焦
-  // null = 无待聚焦; { targetId: null } = 聚焦第一个根节点; { targetId: 'xxx' } = 聚焦指定节点
   const pendingRestoreRef = useRef<{ targetId: string | null } | null>(null);
   const prevRestoreSigRef = useRef(0);
 
@@ -85,7 +112,6 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
-  // 新建节点后滚动到该节点
   useEffect(() => {
     if (!pendingScrollRef.current || !treeRef.current) return;
     try {
@@ -94,8 +120,13 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
       // 节点可能还未渲染完成
     }
     pendingScrollRef.current = null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
+
+  const focusNewNode = useCallback((nodeId: string) => {
+    onSelectNode(nodeId);
+    pendingScrollRef.current = nodeId;
+  }, [onSelectNode]);
 
   const handleUpdate = useCallback(
     (id: string, updates: Partial<JsonTreeNode>) => {
@@ -132,7 +163,6 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
       if (parentId) {
         onSelectNode(parentId);
       } else if (activeNodeId) {
-        // 非焦点删除，把 Monaco 光标送回当前焦点位置
         onSelectNode(activeNodeId);
       }
     },
@@ -145,16 +175,15 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
       const newNode: JsonTreeNode = {
         id: genId(),
         key,
-        value: type === 'null' ? null : '',
+        value: type === 'null' ? null : type === 'boolean' ? false : type === 'number' ? 0 : '',
         type,
       };
       const newTree = addChild(data, pendingAddParentId, newNode);
       onChange(newTree);
       setPendingAddParentId(null);
-      onSelectNode(newNode.id);
-      pendingScrollRef.current = newNode.id;
+      focusNewNode(newNode.id);
     },
-    [data, onChange, pendingAddParentId, onSelectNode]
+    [data, onChange, pendingAddParentId, focusNewNode]
   );
 
   const handleAddCancel = useCallback(() => {
@@ -165,10 +194,178 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
     setPendingAddParentId(parentId);
   }, []);
 
+  const handleFillFromSchema = useCallback(() => {
+    if (!schema) return;
+    const newTree = populateTreeFromSchema(schema);
+    onChange(newTree);
+    if (newTree[0]) {
+      focusNewNode(newTree[0].id);
+    }
+  }, [schema, onChange, focusNewNode]);
+
+  const handleMergeSchema = useCallback(() => {
+    if (!schema) return;
+    const merged = mergeSchemaIntoTree(data, schema);
+    if (treeStructureChanged(data, merged)) {
+      onChange(merged);
+    }
+  }, [schema, data, onChange]);
+
+  // 导入 Schema 后自动补全固定字段
+  useEffect(() => {
+    if (!schema || data.length === 0) return;
+    const merged = mergeSchemaIntoTree(data, schema);
+    if (treeStructureChanged(data, merged)) {
+      onChange(merged);
+    }
+  // 仅在 schema 变化时触发，避免与编辑循环
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schema]);
+
+  const handleAddArrayItem = useCallback(
+    (parentId: string, itemSchema: JsonSchema) => {
+      if (!schema) return;
+      const newNode = createArrayItemNode(itemSchema, data, parentId, schema);
+      if (!newNode) return;
+      const newTree = addChild(data, parentId, newNode);
+      onChange(newTree);
+      focusNewNode(newNode.id);
+    },
+    [schema, data, onChange, focusNewNode]
+  );
+
+  const handleRequestPatternAdd = useCallback(
+    (parentId: string, pattern: string, valueSchema: JsonSchema) => {
+      setPendingPatternAdd({ parentId, pattern, valueSchema });
+    },
+    []
+  );
+
+  const handlePatternAddConfirm = useCallback(
+    (key: string) => {
+      if (!pendingPatternAdd || !schema) return;
+      const { parentId, valueSchema } = pendingPatternAdd;
+      const parent = findNode(data, parentId);
+      if (parent?.children?.some(child => child.key === key)) {
+        window.alert('该键名已存在');
+        return;
+      }
+      const newNode = createTreeNodeFromSchema(key, valueSchema, schema);
+      const newTree = addChild(data, parentId, newNode);
+      onChange(newTree);
+      setPendingPatternAdd(null);
+      focusNewNode(newNode.id);
+    },
+    [pendingPatternAdd, schema, data, onChange, focusNewNode]
+  );
+
+  const handlePatternAddCancel = useCallback(() => {
+    setPendingPatternAdd(null);
+  }, []);
+
+  const buildMenuItems = useCallback(
+    (nodeData: JsonTreeNode, isRoot: boolean): NodeMenuItem[] => {
+      const items: NodeMenuItem[] = [];
+      const nodeId = nodeData.id;
+      const isExpandable = nodeData.type === 'object' || nodeData.type === 'array';
+
+      if (schema && isRoot && isTreeEmpty(data)) {
+        items.push({
+          id: 'fill-schema',
+          label: '从 Schema 初始化',
+          description: '自动生成全部固定字段',
+          icon: 'fill',
+          onClick: handleFillFromSchema,
+        });
+      }
+
+      if (schema && nodeData.type === 'object' && hasMissingSchemaFields(data, schema, nodeId)) {
+        items.push({
+          id: 'merge-schema',
+          label: '补全 Schema 字段',
+          description: '自动添加缺失的固定字段',
+          icon: 'fill',
+          onClick: handleMergeSchema,
+        });
+      }
+
+      if (schema && nodeData.type === 'array') {
+        const arrayOptions = getArrayAddOptions(schema, data, nodeId);
+        for (const opt of arrayOptions) {
+          items.push({
+            id: `add-array-${opt.id}`,
+            label: opt.label,
+            description: opt.description || opt.type,
+            icon: opt.type,
+            onClick: () => handleAddArrayItem(nodeId, opt.itemSchema),
+          });
+        }
+      }
+
+      if (schema && nodeData.type === 'object') {
+        const patternOptions = getPatternAddOptions(schema, data, nodeId);
+        for (const opt of patternOptions) {
+          items.push({
+            id: `add-pattern-${opt.pattern}`,
+            label: opt.label,
+            description: opt.description,
+            icon: 'add',
+            onClick: () => handleRequestPatternAdd(nodeId, opt.pattern, opt.valueSchema),
+          });
+        }
+      }
+
+      if (isExpandable && !schema) {
+        items.push({
+          id: 'add-child',
+          label: '添加子节点',
+          icon: 'add',
+          onClick: () => handleRequestAddChild(nodeId),
+        });
+      }
+
+      if (!isRoot) {
+        items.push({
+          id: 'delete',
+          label: '删除节点',
+          icon: 'delete',
+          danger: true,
+          onClick: () => { void handleDelete(nodeId); },
+        });
+      }
+
+      return items;
+    },
+    [
+      schema,
+      data,
+      handleFillFromSchema,
+      handleMergeSchema,
+      handleAddArrayItem,
+      handleRequestPatternAdd,
+      handleRequestAddChild,
+      handleDelete,
+    ]
+  );
+
+  const renderEmpty = () => {
+    if (schema) {
+      return (
+        <div className={styles.empty}>
+          <p>打开 JSON 文件，导入 Schema 后将自动补全固定字段</p>
+          <button className={styles.emptyBtn} onClick={handleFillFromSchema}>
+            从 Schema 初始化
+          </button>
+        </div>
+      );
+    }
+    return <div className={styles.empty}>打开一个 JSON 文件开始编辑</div>;
+  };
+
   return (
     <div ref={containerRef} className={styles.container}>
       {data.length === 0 ? (
-        <div className={styles.empty}>打开一个 JSON 文件开始编辑</div>
+        renderEmpty()
       ) : dimensions.height > 0 ? (
         <Tree
           ref={treeRef}
@@ -191,9 +388,8 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
             <TreeNode
               {...props}
               activeNodeId={activeNodeId}
+              menuItems={buildMenuItems(props.node.data, props.node.level === 0)}
               onUpdate={handleUpdate}
-              onDelete={handleDelete}
-              onRequestAddChild={handleRequestAddChild}
               onSelectNode={onSelectNode}
             />
           )}
@@ -203,6 +399,12 @@ export function TreeEditor({ data, onChange, activeNodeId, onSelectNode, scrollT
         isOpen={pendingAddParentId !== null}
         onConfirm={handleAddConfirm}
         onCancel={handleAddCancel}
+      />
+      <AddPatternEntryDialog
+        isOpen={pendingPatternAdd !== null}
+        pattern={pendingPatternAdd?.pattern ?? '.*'}
+        onConfirm={handlePatternAddConfirm}
+        onCancel={handlePatternAddCancel}
       />
     </div>
   );

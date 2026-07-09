@@ -69,3 +69,17 @@
 .errorBanner button:hover {
   color: #ff7875;
 }
+
+.codePanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.codeEditorWrap {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}

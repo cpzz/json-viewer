@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
-import Ajv, { type ValidateFunction } from 'ajv';
+import Ajv2020 from 'ajv/dist/2020';
+import { type ValidateFunction } from 'ajv';
 
 export interface JsonSchema {
   type?: string;
@@ -28,7 +29,7 @@ export function useSchemaProcessor() {
   const [schema, setSchema] = useState<JsonSchema | null>(null);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
 
-  const ajv = useMemo(() => new Ajv({ allErrors: true }), []);
+  const ajv = useMemo(() => new Ajv2020({ allErrors: true, strict: false }), []);
 
   const loadSchema = useCallback(async (schemaText: string) => {
     try {

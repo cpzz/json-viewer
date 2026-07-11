@@ -46,31 +46,25 @@ export function Toolbar({
   return (
     <div className={styles.toolbar}>
       <div className={styles.leftGroup}>
-        <button className={styles.iconBtn} onClick={onNewFile} title="新建空 JSON 文件">
+        <button className={styles.iconBtn} onClick={onNewFile} title="新建">
           <FilePlus size={18} />
-          <span className={styles.tooltip}>新建</span>
         </button>
-        <button className={styles.iconBtn} onClick={onOpen} title="打开文件 (Ctrl+O)">
+        <button className={styles.iconBtn} onClick={onOpen} title="打开">
           <FolderOpen size={18} />
-          <span className={styles.tooltip}>打开</span>
         </button>
         <button className={styles.iconBtn} onClick={onOpenDirectory} title="打开目录">
           <FolderPlus size={18} />
-          <span className={styles.tooltip}>打开目录</span>
         </button>
         {onImportSchema && (
-          <button className={styles.iconBtn} onClick={onImportSchema} title="导入 JSON Schema">
+          <button className={styles.iconBtn} onClick={onImportSchema} title="导入 Schema">
             <FileJson size={18} />
-            <span className={styles.tooltip}>导入 Schema</span>
           </button>
         )}
-        <button className={styles.iconBtn} onClick={onSave} title="保存文件 (Ctrl+S)" disabled={!canSave}>
+        <button className={styles.iconBtn} onClick={onSave} disabled={!canSave} title="保存">
           <Save size={18} />
-          <span className={styles.tooltip}>保存</span>
         </button>
-        <button className={styles.iconBtn} onClick={onRefresh} title="刷新" disabled={!canRefresh}>
+        <button className={styles.iconBtn} onClick={onRefresh} disabled={!canRefresh} title="刷新">
           <RefreshCw size={18} />
-          <span className={styles.tooltip}>刷新</span>
         </button>
         <div className={styles.divider} />
         <button
@@ -79,23 +73,20 @@ export function Toolbar({
           title={explorerVisible ? '隐藏文件列表' : '显示文件列表'}
         >
           <FolderTree size={18} />
-          <span className={styles.tooltip}>{explorerVisible ? '隐藏文件列表' : '显示文件列表'}</span>
         </button>
         <button
           className={`${styles.iconBtn} ${leftVisible ? styles.active : ''}`}
           onClick={onToggleLeft}
-          title={leftVisible ? '隐藏左侧面板' : '显示左侧面板'}
+          title={leftVisible ? '隐藏树状编辑器' : '显示树状编辑器'}
         >
           <PanelLeft size={18} />
-          <span className={styles.tooltip}>{leftVisible ? '隐藏左侧' : '显示左侧'}</span>
         </button>
         <button
           className={`${styles.iconBtn} ${rightVisible ? styles.active : ''}`}
           onClick={onToggleRight}
-          title={rightVisible ? '隐藏右侧面板' : '显示右侧面板'}
+          title={rightVisible ? '隐藏代码编辑器' : '显示代码编辑器'}
         >
           <PanelRight size={18} />
-          <span className={styles.tooltip}>{rightVisible ? '隐藏右侧' : '显示右侧'}</span>
         </button>
       </div>
       <div className={styles.centerGroup}>
@@ -114,10 +105,9 @@ export function Toolbar({
         <button
           className={styles.iconBtn}
           onClick={onToggleTheme}
-          title={theme === 'dark' ? '切换到日间模式' : '切换到夜间模式'}
+          title={theme === 'dark' ? '日间模式' : '夜间模式'}
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          <span className={styles.tooltip}>{theme === 'dark' ? '日间模式' : '夜间模式'}</span>
         </button>
       </div>
     </div>
